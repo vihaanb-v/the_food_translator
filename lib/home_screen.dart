@@ -8,8 +8,9 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Home"),
-        backgroundColor: Colors.pink[400],
+        title: const Text("The Food Translator"),
+        backgroundColor: Colors.black,
+        titleTextStyle: TextStyle(color: Colors.white)
       ),
       body: Center(
         child: ElevatedButton.icon(
@@ -25,7 +26,7 @@ class HomeScreen extends StatelessWidget {
           },
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            backgroundColor: Colors.pink[400],
+            backgroundColor: Colors.black,
             foregroundColor: Colors.white,
           ),
         ),
