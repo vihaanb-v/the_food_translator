@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
+import 'package:http/http.dart' as http;
 import 'home_screen.dart';
 
 class CameraPage extends StatefulWidget {
@@ -17,6 +19,7 @@ class _CameraPageState extends State<CameraPage>
   CameraController? cameraController;
   XFile? _capturedImage;
   bool _showPreview = false;
+  String _aiDescription = "";
 
   double _currentZoom = 1.0;
   final double _minZoom = 1.0;
@@ -91,17 +94,19 @@ class _CameraPageState extends State<CameraPage>
   void _handleFocusTap(TapUpDetails details, BoxConstraints constraints) async {
     if (cameraController == null || !cameraController!.value.isInitialized) return;
 
-    final Offset localPosition = details.localPosition;
-    final double normalizedX = localPosition.dx / constraints.maxWidth;
-    final double normalizedY = localPosition.dy / constraints.maxHeight;
+    final local = details.localPosition;
+    final normalized = Offset(
+      local.dx / constraints.maxWidth,
+      local.dy / constraints.maxHeight,
+    );
 
     setState(() {
-      _tapPosition = localPosition;
+      _tapPosition = local;
       _showFocusBox = true;
     });
 
-    await cameraController!.setFocusPoint(Offset(normalizedX, normalizedY));
-    await cameraController!.setExposurePoint(Offset(normalizedX, normalizedY));
+    await cameraController!.setFocusPoint(normalized);
+    await cameraController!.setExposurePoint(normalized);
 
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) setState(() => _showFocusBox = false);
@@ -114,9 +119,35 @@ class _CameraPageState extends State<CameraPage>
       setState(() {
         _capturedImage = image;
         _showPreview = true;
+        _aiDescription = "Analyzing food...";
       });
+      _analyzeWithGPT(File(image.path));
     } catch (e) {
       debugPrint('Error taking picture: $e');
+    }
+  }
+
+  Future<void> _analyzeWithGPT(File imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      final response = await http.post(
+        Uri.parse('http://192.168.1.170:5000/analyze'), // ← update with your server/ngrok URL
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'image': base64Image}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _aiDescription = data['description'] ?? "No description found.";
+        });
+      } else {
+        setState(() => _aiDescription = "Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      setState(() => _aiDescription = "Error analyzing image.");
     }
   }
 
@@ -124,6 +155,7 @@ class _CameraPageState extends State<CameraPage>
     setState(() {
       _capturedImage = null;
       _showPreview = false;
+      _aiDescription = "";
     });
   }
 
@@ -176,6 +208,25 @@ class _CameraPageState extends State<CameraPage>
               ),
             ),
           ),
+          if (_aiDescription.isNotEmpty)
+            Positioned(
+              bottom: 30,
+              left: 20,
+              right: 20,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black87,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _aiDescription,
+                  style:
+                  const TextStyle(color: Colors.white, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
         ],
       )
           : cameraController != null && cameraController!.value.isInitialized
@@ -185,7 +236,7 @@ class _CameraPageState extends State<CameraPage>
             onScaleStart: _handleZoomStart,
             onScaleUpdate: _handleZoomUpdate,
             onScaleEnd: _handleZoomEnd,
-            onTapUp: (details) => _handleFocusTap(details, constraints),
+            onTapUp: (d) => _handleFocusTap(d, constraints),
             child: Stack(
               children: [
                 Center(
@@ -195,9 +246,12 @@ class _CameraPageState extends State<CameraPage>
                       child: FittedBox(
                         fit: BoxFit.contain,
                         child: SizedBox(
-                          width: cameraController!.value.previewSize!.height,
-                          height: cameraController!.value.previewSize!.width,
-                          child: CameraPreview(cameraController!),
+                          width: cameraController!
+                              .value.previewSize!.height,
+                          height: cameraController!
+                              .value.previewSize!.width,
+                          child:
+                          CameraPreview(cameraController!),
                         ),
                       ),
                     ),
@@ -211,7 +265,8 @@ class _CameraPageState extends State<CameraPage>
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.yellow, width: 2),
+                        border:
+                        Border.all(color: Colors.yellow, width: 2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
@@ -227,7 +282,8 @@ class _CameraPageState extends State<CameraPage>
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 26),
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.black, size: 26),
                     ),
                   ),
                 ),
@@ -239,14 +295,16 @@ class _CameraPageState extends State<CameraPage>
                     opacity: _fadeAnimation,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           "${_currentZoom.toStringAsFixed(1)}x",
-                          style: const TextStyle(color: Colors.black, fontSize: 18),
+                          style: const TextStyle(
+                              color: Colors.black, fontSize: 18),
                         ),
                       ),
                     ),
@@ -265,8 +323,10 @@ class _CameraPageState extends State<CameraPage>
                         thumbColor: Colors.white,
                         overlayColor: Colors.white24,
                         trackHeight: 4.0,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
+                        thumbShape:
+                        const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                        overlayShape:
+                        const RoundSliderOverlayShape(overlayRadius: 16.0),
                       ),
                       child: Slider(
                         value: _currentZoom,
@@ -292,7 +352,8 @@ class _CameraPageState extends State<CameraPage>
                         height: 70,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
+                          border: Border.all(
+                              color: Colors.white, width: 4),
                         ),
                         child: Center(
                           child: Container(
