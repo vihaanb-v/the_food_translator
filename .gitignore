@@ -46,3 +46,4 @@ app.*.map.json
 
 # OpenAI Related
 server/secrets.env
+server/secrets.env
