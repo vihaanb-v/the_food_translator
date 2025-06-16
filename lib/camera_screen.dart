@@ -116,12 +116,23 @@ class _CameraPageState extends State<CameraPage>
   void _takePicture() async {
     try {
       final image = await cameraController!.takePicture();
+
+      // ✅ Delay to ensure file is fully written
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      final file = File(image.path);
+      // ✅ Confirm the file exists and has content before proceeding
+      while (!file.existsSync() || file.lengthSync() == 0) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
       setState(() {
         _capturedImage = image;
         _showPreview = true;
         _aiDescription = "Analyzing food...";
       });
-      _analyzeWithGPT(File(image.path));
+
+      _analyzeWithGPT(file);
     } catch (e) {
       debugPrint('Error taking picture: $e');
     }
@@ -201,18 +212,32 @@ class _CameraPageState extends State<CameraPage>
                     ),
                   ),
                 ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(); // closes popup
-                      _confirmPictureWithDish(title, description, _capturedImage!.path);
-                    },
-                    child: const Text(
-                      "Save",
-                      style: TextStyle(fontSize: 14, color: Colors.blue),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // 🔁 Retake button
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close popup
+                        _retakePicture(); // You define this
+                      },
+                      child: const Text(
+                        "Retake",
+                        style: TextStyle(fontSize: 14, color: Colors.red),
+                      ),
                     ),
-                  ),
+                    // 💾 Save button
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close popup
+                        _confirmPictureWithDish(title, description, _capturedImage!.path);
+                      },
+                      child: const Text(
+                        "Save",
+                        style: TextStyle(fontSize: 14, color: Colors.blue),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
