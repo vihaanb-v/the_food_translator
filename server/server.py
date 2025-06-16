@@ -28,7 +28,7 @@ def analyze():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # Decode and save the image temporarily
+        # Decode and save image
         image_bytes = base64.b64decode(image_b64)
         with open("temp.jpg", "wb") as f:
             f.write(image_bytes)
@@ -41,7 +41,7 @@ def analyze():
         if not image_url:
             return jsonify({"error": "Cloudinary upload failed"}), 500
 
-        # --- First GPT prompt: dish name (force valid JSON) ---
+        # --- Dish name ---
         name_response = openai.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -72,28 +72,24 @@ def analyze():
         except json.JSONDecodeError:
             dish_name = ""
 
-        # Extra validation using regex to clean weird edge cases
-        if dish_name:
-            # 🔥 FIXED regex — nothing double-escaped
-            match = re.search(r"([A-Z][a-zA-Z\s\-']{2,50})", dish_name)
-            if match:
-                dish_name = match.group(0).strip()
+        match = re.search(r"([A-Z][a-zA-Z\s\-']{2,50})", dish_name)
+        if match:
+            dish_name = match.group(0).strip()
 
-        # Fallback filter
         if not dish_name or dish_name.lower() in {"dish", "food", "unknown"}:
             dish_name = "Unknown Dish"
 
         print(f"Parsed dish name: '{dish_name}'")
 
-        # --- Second GPT prompt: description ---
+        # --- Dish description ---
         desc_response = openai.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are a culinary expert. Write a vivid and accurate paragraph describing the dish. "
-                        "Mention ingredients, flavors, textures, and cultural background if relevant."
+                        "You are a culinary expert. Write an accurate description describing the dish you see in the image."
+                        "Mention ingredients, flavors, and textures."
                     )
                 },
                 {
@@ -108,9 +104,56 @@ def analyze():
         if not description:
             description = "No description available."
 
+        # --- Healthier Recipe ---
+        healthy_response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a professional nutritionist and chef. Create a healthier version of a dish."
+                        " Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
+                        " prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Create a healthier version of the dish '{dish_name}' without compromising too much on flavor."
+                }
+            ],
+            max_tokens=1000
+        )
+
+        healthy_recipe = healthy_response.choices[0].message.content.strip()
+
+        # --- Mimic Recipe ---
+        mimic_response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a culinary expert recreating a dish based on its appearance and name. Return a thorough recipe "
+                        "that closely mimics the original dish visually and flavor-wise. Include ingredients with quantities, "
+                        "serving size, prep and cook time, and step-by-step instructions with nutritional breakdown."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Based on its name and typical appearance, write a full recipe for '{dish_name}' that closely mimics the original."
+                }
+            ],
+            max_tokens=1000
+        )
+
+        mimic_recipe = mimic_response.choices[0].message.content.strip()
+
+        # --- Final JSON ---
         return jsonify({
             "title": dish_name,
-            "description": description
+            "description": description,
+            "healthyRecipe": healthy_recipe,
+            "mimicRecipe": mimic_recipe
         })
 
     except Exception as e:

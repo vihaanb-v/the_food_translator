@@ -18,6 +18,8 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const CameraPage()),
     );
 
+    print("Returned from camera: $result");
+
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
         savedDishes.add(result);
@@ -25,44 +27,48 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _showDishPopup(String title, String description, String imagePath) {
+  void _showDishPopup(Map<String, dynamic> dish) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          contentPadding: const EdgeInsets.all(16),
-          content: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.8,
-            ),
-            child: SingleChildScrollView(
+        return DefaultTabController(
+          length: 3,
+          child: Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.75,
+              width: MediaQuery.of(context).size.width * 0.9,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(File(imagePath)),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      dish['title'] ?? 'Dish',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
+                  const TabBar(
+                    tabs: [
+                      Tab(text: 'Description'),
+                      Tab(text: 'Healthier Recipe'),
+                      Tab(text: 'Mimic Recipe'),
+                    ],
+                    labelColor: Colors.black,
+                    indicatorColor: Colors.deepOrange,
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Close"),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildTabContent(dish['description'] ?? 'No description'),
+                        _buildTabContent(dish['healthyRecipe'] ?? 'No healthy recipe available'),
+                        _buildTabContent(dish['mimicRecipe'] ?? 'No mimic recipe available'),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -73,10 +79,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildTabContent(String text) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Scrollbar(
+        child: SingleChildScrollView(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 16),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget buildSavedDishButton(Map<String, dynamic> dish) {
     return GestureDetector(
       onTap: () {
-        _showDishPopup(dish['title'], dish['description'], dish['imagePath']);
+        print("Tapped: ${dish['title']}"); // ✅ Add debug print
+        _showDishPopup(dish);
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -92,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
         alignment: Alignment.bottomLeft,
         padding: const EdgeInsets.all(12),
         child: Text(
-          dish['title'],
+          dish['title'] ?? 'Dish',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 20,

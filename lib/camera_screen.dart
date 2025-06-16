@@ -13,13 +13,16 @@ class CameraPage extends StatefulWidget {
   State<CameraPage> createState() => _CameraPageState();
 }
 
-class _CameraPageState extends State<CameraPage>
-    with SingleTickerProviderStateMixin {
+class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateMixin {
   List<CameraDescription> cameras = [];
   CameraController? cameraController;
   XFile? _capturedImage;
   bool _showPreview = false;
   String _aiDescription = "";
+  String _lastAnalyzedTitle = '';
+  String _lastAnalyzedDescription = '';
+  String _lastAnalyzedHealthy = '';
+  String _lastAnalyzedMimic = '';
 
   double _currentZoom = 1.0;
   final double _minZoom = 1.0;
@@ -151,15 +154,27 @@ class _CameraPageState extends State<CameraPage>
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final rawTitle = (data['title'] as String?)?.trim();
-        final rawDescription = (data['description'] as String?)?.trim();
 
+        // Extract all fields from the GPT response
+        final rawTitle = (data['title'] as String?)?.trim();
+        final description = (data['description'] as String?)?.trim() ?? "No description available.";
+        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ?? "No healthy recipe available.";
+        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ?? "No mimic recipe available.";
+
+        // Clean and validate title
         final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
             ? rawTitle
             : "Unknown Dish";
-        final description = rawDescription ?? "No description available.";
 
-        _showFoodPopup(title, description);
+        // ✅ FIX: Store values so we can use them from the check button too
+        setState(() {
+          _lastAnalyzedTitle = title;
+          _lastAnalyzedDescription = description;
+          _lastAnalyzedHealthy = healthyRecipe;
+          _lastAnalyzedMimic = mimicRecipe;
+        });
+
+        _showFoodPopup(title, description, healthyRecipe, mimicRecipe);
       } else {
         setState(() => _aiDescription = "Error: ${response.statusCode}");
       }
@@ -168,7 +183,12 @@ class _CameraPageState extends State<CameraPage>
     }
   }
 
-  void _showFoodPopup(String title, String description) {
+  void _showFoodPopup(
+      String title,
+      String description,
+      String healthyRecipe,
+      String mimicRecipe,
+      ) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -215,22 +235,20 @@ class _CameraPageState extends State<CameraPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // 🔁 Retake button
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pop(); // Close popup
-                        _retakePicture(); // You define this
+                        _retakePicture();
                       },
                       child: const Text(
                         "Retake",
                         style: TextStyle(fontSize: 14, color: Colors.red),
                       ),
                     ),
-                    // 💾 Save button
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pop(); // Close popup
-                        _confirmPictureWithDish(title, description, _capturedImage!.path);
+                        _confirmPictureWithDish(title, description, healthyRecipe, mimicRecipe, _capturedImage!.path);
                       },
                       child: const Text(
                         "Save",
@@ -261,12 +279,23 @@ class _CameraPageState extends State<CameraPage>
     });
   }
 
-  void _confirmPictureWithDish(String title, String description, String imagePath) {
-    Navigator.of(context).pop({
+  void _confirmPictureWithDish(
+      String title,
+      String description,
+      String healthy,
+      String mimic,
+      String imagePath,
+      ) {
+    final result = {
       'title': title,
       'description': description,
+      'healthyRecipe': healthy,
+      'mimicRecipe': mimic,
       'imagePath': imagePath,
-    });
+    };
+
+    print("🔁 Returning to HomeScreen with: $result");
+    Navigator.of(context).pop(result);
   }
 
   @override
@@ -302,7 +331,15 @@ class _CameraPageState extends State<CameraPage>
             left: 20,
             child: GestureDetector(
               onTap: () {
-                Navigator.of(context).pop();
+                if (_capturedImage != null) {
+                  _confirmPictureWithDish(
+                    _lastAnalyzedTitle,
+                    _lastAnalyzedDescription,
+                    _lastAnalyzedHealthy,
+                    _lastAnalyzedMimic,
+                    _capturedImage!.path,
+                  );
+                }
               },
               child: Container(
                 padding: const EdgeInsets.all(10),
