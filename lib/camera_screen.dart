@@ -133,22 +133,99 @@ class _CameraPageState extends State<CameraPage>
       final base64Image = base64Encode(bytes);
 
       final response = await http.post(
-        Uri.parse('http://192.168.1.170:5000/analyze'), // ← update with your server/ngrok URL
+        Uri.parse('http://192.168.68.68:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _aiDescription = data['description'] ?? "No description found.";
-        });
+        final rawTitle = (data['title'] as String?)?.trim();
+        final rawDescription = (data['description'] as String?)?.trim();
+
+        final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
+            ? rawTitle
+            : "Unknown Dish";
+        final description = rawDescription ?? "No description available.";
+
+        _showFoodPopup(title, description);
       } else {
         setState(() => _aiDescription = "Error: ${response.statusCode}");
       }
     } catch (e) {
       setState(() => _aiDescription = "Error analyzing image.");
     }
+  }
+
+  void _showFoodPopup(String title, String description) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Food Description',
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (context, animation, secondaryAnimation) => Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.all(20),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.66,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Scrollbar(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        description.isEmpty ? "No description available." : description,
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // closes popup
+                      _confirmPictureWithDish(title, description, _capturedImage!.path);
+                    },
+                    child: const Text(
+                      "Save",
+                      style: TextStyle(fontSize: 14, color: Colors.blue),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+    );
   }
 
   void _retakePicture() {
@@ -159,10 +236,12 @@ class _CameraPageState extends State<CameraPage>
     });
   }
 
-  void _confirmPicture() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+  void _confirmPictureWithDish(String title, String description, String imagePath) {
+    Navigator.of(context).pop({
+      'title': title,
+      'description': description,
+      'imagePath': imagePath,
+    });
   }
 
   @override
@@ -197,7 +276,9 @@ class _CameraPageState extends State<CameraPage>
             top: 50,
             left: 20,
             child: GestureDetector(
-              onTap: _confirmPicture,
+              onTap: () {
+                Navigator.of(context).pop();
+              },
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
@@ -210,20 +291,33 @@ class _CameraPageState extends State<CameraPage>
           ),
           if (_aiDescription.isNotEmpty)
             Positioned(
-              bottom: 30,
+              bottom: 80,
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  _aiDescription,
-                  style:
-                  const TextStyle(color: Colors.white, fontSize: 16),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _aiDescription,
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -250,8 +344,7 @@ class _CameraPageState extends State<CameraPage>
                               .value.previewSize!.height,
                           height: cameraController!
                               .value.previewSize!.width,
-                          child:
-                          CameraPreview(cameraController!),
+                          child: CameraPreview(cameraController!),
                         ),
                       ),
                     ),
@@ -265,28 +358,11 @@ class _CameraPageState extends State<CameraPage>
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        border:
-                        Border.all(color: Colors.yellow, width: 2),
+                        border: Border.all(color: Colors.yellow, width: 2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ),
-                Positioned(
-                  top: 50,
-                  right: 20,
-                  child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: 26),
-                    ),
-                  ),
-                ),
                 Positioned(
                   bottom: 140,
                   left: 0,
@@ -295,16 +371,14 @@ class _CameraPageState extends State<CameraPage>
                     opacity: _fadeAnimation,
                     child: Center(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           "${_currentZoom.toStringAsFixed(1)}x",
-                          style: const TextStyle(
-                              color: Colors.black, fontSize: 18),
+                          style: const TextStyle(color: Colors.black, fontSize: 18),
                         ),
                       ),
                     ),
@@ -323,10 +397,8 @@ class _CameraPageState extends State<CameraPage>
                         thumbColor: Colors.white,
                         overlayColor: Colors.white24,
                         trackHeight: 4.0,
-                        thumbShape:
-                        const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                        overlayShape:
-                        const RoundSliderOverlayShape(overlayRadius: 16.0),
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
                       ),
                       child: Slider(
                         value: _currentZoom,
@@ -352,8 +424,7 @@ class _CameraPageState extends State<CameraPage>
                         height: 70,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(
-                              color: Colors.white, width: 4),
+                          border: Border.all(color: Colors.white, width: 4),
                         ),
                         child: Center(
                           child: Container(
