@@ -111,14 +111,14 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a professional nutritionist and chef. Create a healthier version of a dish."
-                        " Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
-                        " prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
+                        "You are a professional nutritionist and chef. Create a healthier version of the dish."
+                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
+                        "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Create a healthier version of the dish '{dish_name}' without compromising too much on flavor."
+                    "content": f"Create a healthier version of the dish '{dish_name}' without compromising on flavor."
                 }
             ],
             max_tokens=1000
@@ -133,9 +133,9 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a culinary expert recreating a dish based on its appearance and name. Return a thorough recipe "
-                        "that closely mimics the original dish visually and flavor-wise. Include ingredients with quantities, "
-                        "serving size, prep and cook time, and step-by-step instructions with nutritional breakdown."
+                        "You are a professional nutritionist and chef. Create an accurate recipe of the dish."
+                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
+                        "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
                     )
                 },
                 {

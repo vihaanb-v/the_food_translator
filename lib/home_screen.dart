@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'camera_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -28,97 +29,172 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showDishPopup(Map<String, dynamic> dish) {
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (context) {
-        return DefaultTabController(
-          length: 3,
-          child: Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.75,
-              width: MediaQuery.of(context).size.width * 0.9,
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      dish['title'] ?? 'Dish',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+      barrierDismissible: true,
+      barrierLabel: 'Dish Popup',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
+          child: Center(
+            child: Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: DefaultTabController(
+                length: 3,
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                dish['title'] ?? 'Dish',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: const Icon(Icons.close, size: 20),
+                            ),
+                          ],
+                        ),
                       ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const TabBar(
-                    tabs: [
-                      Tab(text: 'Description'),
-                      Tab(text: 'Healthier Recipe'),
-                      Tab(text: 'Mimic Recipe'),
+                      TabBar(
+                        tabs: const [
+                          Tab(child: Text('Description')),
+                          Tab(child: Text('Healthier Recipe')),
+                          Tab(child: Text('Mimic Recipe')),
+                        ],
+                        labelColor: Colors.black,
+                        indicatorColor: Colors.grey,
+                        overlayColor: MaterialStatePropertyAll(Colors.transparent),
+                        labelPadding: EdgeInsets.zero, // no extra padding inside tabs
+                        padding: EdgeInsets.zero, // no outer padding on TabBar
+                        indicatorPadding: EdgeInsets.zero,
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildTabContent(
+                              dish['imagePath'],
+                              dish['description'] ?? 'No description',
+                            ),
+                            _buildTabContent(
+                              dish['imagePath'],
+                              dish['healthyRecipe'] ?? 'No healthy recipe available',
+                            ),
+                            _buildTabContent(
+                              dish['imagePath'],
+                              dish['mimicRecipe'] ?? 'No mimic recipe available',
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                    labelColor: Colors.black,
-                    indicatorColor: Colors.deepOrange,
                   ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildTabContent(dish['description'] ?? 'No description'),
-                        _buildTabContent(dish['healthyRecipe'] ?? 'No healthy recipe available'),
-                        _buildTabContent(dish['mimicRecipe'] ?? 'No mimic recipe available'),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
           ),
         );
       },
     );
   }
 
-  Widget _buildTabContent(String text) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Scrollbar(
-        child: SingleChildScrollView(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 16),
+  Widget _buildTabContent(String imagePath, String text) {
+    return Column(
+      children: [
+        Image.file(
+          File(imagePath),
+          width: double.infinity,
+          height: 180,
+          fit: BoxFit.cover,
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                child: Text(
+                  text,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget buildSavedDishButton(Map<String, dynamic> dish) {
-    return GestureDetector(
-      onTap: () {
-        print("Tapped: ${dish['title']}"); // ✅ Add debug print
-        _showDishPopup(dish);
+  Widget buildSavedDishButton(Map<String, dynamic> dish, int index) {
+    return Dismissible(
+      key: Key(dish['imagePath'] + index.toString()),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) {
+        setState(() {
+          savedDishes.removeAt(index);
+        });
       },
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        height: 120,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: FileImage(File(dish['imagePath'])),
-            fit: BoxFit.cover,
-            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
-          ),
-        ),
-        alignment: Alignment.bottomLeft,
-        padding: const EdgeInsets.all(12),
-        child: Text(
-          dish['title'] ?? 'Dish',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Colors.black,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      child: AnimatedSlide(
+        offset: Offset.zero,
+        duration: const Duration(milliseconds: 300),
+        child: GestureDetector(
+          onTap: () => _showDishPopup(dish),
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 4,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.file(
+                  File(dish['imagePath']),
+                  width: double.infinity,
+                  height: 140,
+                  fit: BoxFit.cover,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(
+                    dish['title'] ?? 'Dish',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -174,7 +250,28 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          ...savedDishes.map(buildSavedDishButton).toList(),
+          if (savedDishes.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 140),
+              child: Column(
+                children: const [
+                  Icon(Icons.fastfood, size: 90, color: Colors.grey),
+                  SizedBox(height: 22),
+                  Text(
+                    "No saved dishes yet",
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+                  ),
+                  SizedBox(height: 14),
+                  Text(
+                    "Tap the camera to translate your first recipe.",
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else
+            ...savedDishes.asMap().entries.map((entry) => buildSavedDishButton(entry.value, entry.key)).toList(),
         ],
       ),
     );
