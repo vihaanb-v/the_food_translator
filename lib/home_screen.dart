@@ -1,12 +1,11 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'camera_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
-
   final user = FirebaseAuth.instance.currentUser!;
 
   @override
@@ -22,12 +21,66 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(builder: (_) => const CameraPage()),
     );
 
-    print("Returned from camera: $result");
-
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
         savedDishes.add(result);
       });
+    }
+  }
+
+  void _logoutWithSpinner() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withOpacity(0.3),
+      builder: (context) {
+        return Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
+              child: Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      "Logging out...",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontFamily: 'Roboto',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    await Future.delayed(const Duration(milliseconds: 1200));
+    await FirebaseAuth.instance.signOut();
+
+    if (mounted) {
+      Navigator.of(context).pop(); // close spinner
+      // Optional: Navigate to login screen
+      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthPage()));
     }
   }
 
@@ -81,8 +134,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         labelColor: Colors.black,
                         indicatorColor: Colors.grey,
                         overlayColor: MaterialStatePropertyAll(Colors.transparent),
-                        labelPadding: EdgeInsets.zero, // no extra padding inside tabs
-                        padding: EdgeInsets.zero, // no outer padding on TabBar
+                        labelPadding: EdgeInsets.zero,
+                        padding: EdgeInsets.zero,
                         indicatorPadding: EdgeInsets.zero,
                       ),
                       Expanded(
@@ -207,22 +260,25 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: const Text("The Food Translator"),
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: 'Log out',
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                // Optional: Navigate to login screen if needed
-                // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthPage()));
-              },
-            ),
-          ],
+      appBar: AppBar(
+        title: const Text(
+          "The Food Translator",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            fontFamily: 'Roboto',
+          ),
         ),
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _logoutWithSpinner,
+            icon: const Icon(Icons.logout, color: Colors.white),
+            tooltip: 'Logout', // Optional: shows on long press
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         children: [

@@ -242,7 +242,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                       },
                       child: const Text(
                         "Retake",
-                        style: TextStyle(fontSize: 14, color: Colors.red),
+                        style: TextStyle(fontSize: 14, color: Colors.black),
                       ),
                     ),
                     TextButton(
