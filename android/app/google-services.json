@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "792645958650",
+    "project_id": "thefoodtranslator-28cc2",
+    "storage_bucket": "thefoodtranslator-28cc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:792645958650:android:b81a46867de84faaa38243",
+        "android_client_info": {
+          "package_name": "com.example.the_food_translator_v2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5w-ejJRabzkSQDg1CNNNHviLPa6J1PYI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

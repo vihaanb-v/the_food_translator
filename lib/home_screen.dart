@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'camera_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  HomeScreen({super.key});
+
+  final user = FirebaseAuth.instance.currentUser!;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -204,11 +207,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("The Food Translator"),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-      ),
+        appBar: AppBar(
+          title: const Text("The Food Translator"),
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: 'Log out',
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                // Optional: Navigate to login screen if needed
+                // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthPage()));
+              },
+            ),
+          ],
+        ),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         children: [
