@@ -2,9 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
-import 'home_screen.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -95,7 +93,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   }
 
   void _handleFocusTap(TapUpDetails details, BoxConstraints constraints) async {
-    if (cameraController == null || !cameraController!.value.isInitialized) return;
+    if (cameraController == null || !cameraController!.value.isInitialized)
+      return;
 
     final local = details.localPosition;
     final normalized = Offset(
@@ -157,12 +156,16 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
         // Extract all fields from the GPT response
         final rawTitle = (data['title'] as String?)?.trim();
-        final description = (data['description'] as String?)?.trim() ?? "No description available.";
-        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ?? "No healthy recipe available.";
-        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ?? "No mimic recipe available.";
+        final description = (data['description'] as String?)?.trim() ??
+            "No description available.";
+        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ??
+            "No healthy recipe available.";
+        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ??
+            "No mimic recipe available.";
 
         // Clean and validate title
-        final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
+        final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" &&
+            rawTitle.isNotEmpty)
             ? rawTitle
             : "Unknown Dish";
 
@@ -183,85 +186,179 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     }
   }
 
-  void _showFoodPopup(
-      String title,
+  void _showExitConfirmationDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Discard Scan',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Discard this scan?",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Your current scan will be lost if you exit.",
+                      style: TextStyle(fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(), // Close dialog
+                          child: const Text(
+                            "Cancel",
+                            style: TextStyle(fontSize: 16, color: Colors.black),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Close dialog
+                            _retakePicture(); // Reset preview but stay on camera
+                          },
+                          child: const Text(
+                            "Discard",
+                            style: TextStyle(fontSize: 16, color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleExitTap() {
+    if (_showPreview) {
+      _showExitConfirmationDialog();
+    } else {
+      Navigator.of(context).pop(); // Exit immediately if no photo taken
+    }
+  }
+
+  void _showFoodPopup(String title,
       String description,
       String healthyRecipe,
-      String mimicRecipe,
-      ) {
+      String mimicRecipe,) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
       barrierLabel: 'Food Description',
       transitionDuration: const Duration(milliseconds: 500),
-      pageBuilder: (context, animation, secondaryAnimation) => Center(
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          padding: const EdgeInsets.all(20),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.66,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: Scrollbar(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        description.isEmpty ? "No description available." : description,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.all(20),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery
+                    .of(context)
+                    .size
+                    .height * 0.66,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Close popup
-                        _retakePicture();
-                      },
-                      child: const Text(
-                        "Retake",
-                        style: TextStyle(fontSize: 14, color: Colors.black),
+                    Center(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(); // Close popup
-                        _confirmPictureWithDish(title, description, healthyRecipe, mimicRecipe, _capturedImage!.path);
-                      },
-                      child: const Text(
-                        "Save",
-                        style: TextStyle(fontSize: 14, color: Colors.blue),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Scrollbar(
+                        child: SingleChildScrollView(
+                          child: Text(
+                            description.isEmpty
+                                ? "No description available."
+                                : description,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
                       ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Close popup
+                            _retakePicture();
+                          },
+                          child: const Text(
+                            "Retake",
+                            style: TextStyle(fontSize: 14, color: Colors.black),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).pop(); // Close popup
+                            _confirmPictureWithDish(
+                                title, description, healthyRecipe, mimicRecipe,
+                                _capturedImage!.path);
+                          },
+                          child: const Text(
+                            "Save",
+                            style: TextStyle(fontSize: 14, color: Colors.blue),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
@@ -279,19 +376,18 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     });
   }
 
-  void _confirmPictureWithDish(
-      String title,
+  void _confirmPictureWithDish(String title,
       String description,
       String healthy,
       String mimic,
-      String imagePath,
-      ) {
+      String imagePath,) {
     final result = {
       'title': title,
       'description': description,
       'healthyRecipe': healthy,
       'mimicRecipe': mimic,
       'imagePath': imagePath,
+      'isFavorite': false,
     };
 
     print("🔁 Returning to HomeScreen with: $result");
@@ -302,20 +398,68 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _showPreview && _capturedImage != null
-          ? Stack(
+      body: Stack(
         children: [
-          Positioned.fill(
-            child: Image.file(
-              File(_capturedImage!.path),
-              fit: BoxFit.contain,
-            ),
-          ),
+          if (_showPreview && _capturedImage != null)
+            Positioned.fill(
+              child: Image.file(
+                File(_capturedImage!.path),
+                fit: BoxFit.contain,
+              ),
+            )
+          else if (cameraController != null &&
+              cameraController!.value.isInitialized)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return GestureDetector(
+                  onScaleStart: _handleZoomStart,
+                  onScaleUpdate: _handleZoomUpdate,
+                  onScaleEnd: _handleZoomEnd,
+                  onTapUp: (d) => _handleFocusTap(d, constraints),
+                  child: Stack(
+                    children: [
+                      Center(
+                        child: ClipRect(
+                          child: OverflowBox(
+                            alignment: Alignment.center,
+                            child: FittedBox(
+                              fit: BoxFit.contain,
+                              child: SizedBox(
+                                width: cameraController!.value.previewSize!.height,
+                                height: cameraController!.value.previewSize!.width,
+                                child: CameraPreview(cameraController!),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (_showFocusBox && _tapPosition != null)
+                        Positioned(
+                          left: _tapPosition!.dx - 30,
+                          top: _tapPosition!.dy - 30,
+                          child: Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.yellow, width: 2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            )
+          else
+            const Center(child: CircularProgressIndicator()),
+
+          // ✅ Always-visible ✖ Close button with dynamic behavior
           Positioned(
             top: 50,
             right: 20,
             child: GestureDetector(
-              onTap: _retakePicture,
+              onTap: _handleExitTap,
               child: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: const BoxDecoration(
@@ -326,31 +470,89 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
               ),
             ),
           ),
-          Positioned(
-            top: 50,
-            left: 20,
-            child: GestureDetector(
-              onTap: () {
-                if (_capturedImage != null) {
-                  _confirmPictureWithDish(
-                    _lastAnalyzedTitle,
-                    _lastAnalyzedDescription,
-                    _lastAnalyzedHealthy,
-                    _lastAnalyzedMimic,
-                    _capturedImage!.path,
-                  );
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
+
+          // ✅ Zoom UI (only show during live camera, not in preview)
+          if (!_showPreview) ...[
+            Positioned(
+              bottom: 140,
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.8),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "${_currentZoom.toStringAsFixed(1)}x",
+                      style: const TextStyle(color: Colors.black, fontSize: 18),
+                    ),
+                  ),
                 ),
-                child: const Icon(Icons.check, color: Colors.black),
               ),
             ),
-          ),
+            Positioned(
+              bottom: 120,
+              left: 40,
+              right: 40,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: Colors.white,
+                    inactiveTrackColor: Colors.white38,
+                    thumbColor: Colors.white,
+                    overlayColor: Colors.white24,
+                    trackHeight: 4.0,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
+                  ),
+                  child: Slider(
+                    value: _currentZoom,
+                    min: _minZoom,
+                    max: _maxZoom,
+                    onChanged: (value) async {
+                      setState(() => _currentZoom = value);
+                      await cameraController?.setZoomLevel(value);
+                    },
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: _takePicture,
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 4),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          // ✅ Loading overlay during GPT analysis
           if (_aiDescription.isNotEmpty)
             Positioned(
               bottom: 80,
@@ -384,130 +586,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
               ),
             ),
         ],
-      )
-          : cameraController != null && cameraController!.value.isInitialized
-          ? LayoutBuilder(
-        builder: (context, constraints) {
-          return GestureDetector(
-            onScaleStart: _handleZoomStart,
-            onScaleUpdate: _handleZoomUpdate,
-            onScaleEnd: _handleZoomEnd,
-            onTapUp: (d) => _handleFocusTap(d, constraints),
-            child: Stack(
-              children: [
-                Center(
-                  child: ClipRect(
-                    child: OverflowBox(
-                      alignment: Alignment.center,
-                      child: FittedBox(
-                        fit: BoxFit.contain,
-                        child: SizedBox(
-                          width: cameraController!
-                              .value.previewSize!.height,
-                          height: cameraController!
-                              .value.previewSize!.width,
-                          child: CameraPreview(cameraController!),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_showFocusBox && _tapPosition != null)
-                  Positioned(
-                    left: _tapPosition!.dx - 30,
-                    top: _tapPosition!.dy - 30,
-                    child: Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.yellow, width: 2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 140,
-                  left: 0,
-                  right: 0,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          "${_currentZoom.toStringAsFixed(1)}x",
-                          style: const TextStyle(color: Colors.black, fontSize: 18),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 120,
-                  left: 40,
-                  right: 40,
-                  child: FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        activeTrackColor: Colors.white,
-                        inactiveTrackColor: Colors.white38,
-                        thumbColor: Colors.white,
-                        overlayColor: Colors.white24,
-                        trackHeight: 4.0,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
-                      ),
-                      child: Slider(
-                        value: _currentZoom,
-                        min: _minZoom,
-                        max: _maxZoom,
-                        onChanged: (value) async {
-                          setState(() => _currentZoom = value);
-                          await cameraController?.setZoomLevel(value);
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 40,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: _takePicture,
-                      child: Container(
-                        width: 70,
-                        height: 70,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 52,
-                            height: 52,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      )
-          : const Center(child: CircularProgressIndicator()),
+      ),
     );
   }
 }

@@ -17,6 +17,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   List<Map<String, dynamic>> savedDishes = [];
 
+  void _toggleFavorite(int index) {
+    setState(() {
+      savedDishes[index]['isFavorite'] = !(savedDishes[index]['isFavorite'] ?? false);
+    });
+  }
+
   void _openCamera() async {
     final result = await Navigator.push(
       context,
@@ -24,6 +30,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (result != null && result is Map<String, dynamic>) {
+      result['isFavorite'] = false;
+
       setState(() {
         savedDishes.insert(0, result);
         _listKey.currentState?.insertItem(0);
@@ -177,20 +185,41 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Image.file(
-                  File(dish['imagePath']),
-                  width: double.infinity,
-                  height: 140,
-                  fit: BoxFit.cover,
+                Stack(
+                  children: [
+                    Image.file(
+                      File(dish['imagePath']),
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                    ),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IconButton(
+                        icon: Icon(
+                          dish['isFavorite'] == true ? Icons.favorite : Icons.favorite_border,
+                          color: Colors.redAccent,
+                        ),
+                        onPressed: () => _toggleFavorite(index),
+                      ),
+                    )
+                  ],
                 ),
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(
-                    dish['title'] ?? 'Dish',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        dish['title'] ?? 'Dish',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                   ),
                 ),
               ],
