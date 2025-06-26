@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:the_food_translator/auth_page.dart';
 import 'camera_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -80,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       Navigator.of(context).pop(); // close spinner
       // Optional: Navigate to login screen
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AuthPage()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => AuthPage()));
     }
   }
 

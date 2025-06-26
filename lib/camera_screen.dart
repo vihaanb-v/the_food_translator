@@ -147,7 +147,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       final base64Image = base64Encode(bytes);
 
       final response = await http.post(
-        Uri.parse('http://192.168.68.68:5000/analyze'),
+        Uri.parse('http://192.168.68.61:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
       );

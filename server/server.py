@@ -133,14 +133,14 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a professional nutritionist and chef. Create an accurate recipe of the dish."
+                        "You are a professional nutritionist and chef. Create an accurate mimic recipe of the dish."
                         "Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
                         "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
                     )
                 },
                 {
                     "role": "user",
-                    "content": f"Based on its name and typical appearance, write a full recipe for '{dish_name}' that closely mimics the original."
+                    "content": f"Based on its name and typical appearance, write a full recipe for '{dish_name}' that mimics the original."
                 }
             ],
             max_tokens=1000
