@@ -2,9 +2,8 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:the_food_translator/auth_page.dart';
 import 'camera_screen.dart';
-import 'dialogs.dart';
+import 'profile_page.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -15,6 +14,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   List<Map<String, dynamic>> savedDishes = [];
 
   void _openCamera() async {
@@ -25,20 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (result != null && result is Map<String, dynamic>) {
       setState(() {
-        savedDishes.add(result);
+        savedDishes.insert(0, result);
+        _listKey.currentState?.insertItem(0);
       });
-    }
-  }
-
-  void _logoutWithSpinner() async {
-    showLoadingDialog(context, "Logging out..."); // ✅ from dialogs.dart
-
-    await Future.delayed(const Duration(milliseconds: 1200));
-    await FirebaseAuth.instance.signOut();
-
-    if (mounted) {
-      Navigator.of(context).pop(); // close spinner
-      Navigator.pushReplacementNamed(context, '/');
     }
   }
 
@@ -92,9 +81,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         labelColor: Colors.black,
                         indicatorColor: Colors.grey,
                         overlayColor: MaterialStatePropertyAll(Colors.transparent),
-                        labelPadding: EdgeInsets.zero,
-                        padding: EdgeInsets.zero,
-                        indicatorPadding: EdgeInsets.zero,
                       ),
                       Expanded(
                         child: TabBarView(
@@ -219,22 +205,40 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 2,
+        centerTitle: true,
         title: const Text(
-          "The Food Translator",
+          'The Food Translator',
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            color: Colors.white,
             fontSize: 20,
-            fontFamily: 'Roboto',
           ),
         ),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            onPressed: _logoutWithSpinner,
-            icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Logout', // Optional: shows on long press
+          Tooltip(
+            message: "View Profile",
+            child: IconButton(
+              icon: Hero(
+                tag: 'profile-pic',
+                child: CircleAvatar(
+                  radius: 16,
+                  backgroundImage: widget.user.photoURL != null
+                      ? NetworkImage(widget.user.photoURL!)
+                      : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                );
+              },
+            ),
           ),
+          const SizedBox(width: 12),
         ],
       ),
       body: ListView(
@@ -299,7 +303,19 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           else
-            ...savedDishes.asMap().entries.map((entry) => buildSavedDishButton(entry.value, entry.key)).toList(),
+            AnimatedList(
+              key: _listKey,
+              initialItemCount: savedDishes.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemBuilder: (context, index, animation) {
+                final dish = savedDishes[index];
+                return SizeTransition(
+                  sizeFactor: animation,
+                  child: buildSavedDishButton(dish, index),
+                );
+              },
+            ),
         ],
       ),
     );
