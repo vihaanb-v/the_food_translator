@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'login.dart';
-
-import 'package:the_food_translator/auth_page.dart';
 import 'package:firebase_core/firebase_core.dart';
+
+import 'auth_page.dart';
+import 'home_screen.dart';
 import 'firebase_options.dart';
 
 // Optional: Remove this if not used elsewhere
@@ -14,7 +14,6 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  // You can still load cameras for use in CameraPage later
   cameras = await availableCameras();
 
   runApp(const MyApp());
@@ -25,10 +24,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'JoinUp Camera',
+    return MaterialApp(
+      title: 'The Food Translator',
       debugShowCheckedModeBanner: false,
-      home: AuthPage(),
+      theme: ThemeData(
+        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: Colors.grey[50],
+        useMaterial3: true,
+      ),
+      home: const AuthPage(), // default entry point
+      routes: {
+        '/home': (context) => HomeScreen(), // ✅ added named route
+        // You can add others if needed:
+        // '/login': (context) => LoginScreen(onTap: () {}),
+        // '/register': (context) => RegisterPage(onTap: () {}),
+      },
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:the_food_translator/auth_page.dart';
 import 'camera_screen.dart';
+import 'dialogs.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -30,58 +31,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _logoutWithSpinner() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.3),
-      builder: (context) {
-        return Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
-              child: Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.8),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 4,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      "Logging out...",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        fontFamily: 'Roboto',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    showLoadingDialog(context, "Logging out..."); // ✅ from dialogs.dart
 
     await Future.delayed(const Duration(milliseconds: 1200));
     await FirebaseAuth.instance.signOut();
 
     if (mounted) {
       Navigator.of(context).pop(); // close spinner
-      // Optional: Navigate to login screen
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => AuthPage()));
+      Navigator.pushReplacementNamed(context, '/');
     }
   }
 

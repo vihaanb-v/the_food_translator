@@ -55,10 +55,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
 
       Navigator.pop(dialogContext); // ✅ Dismiss spinner
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
+      Navigator.pushReplacementNamed(context, '/home');
     } on FirebaseAuthException catch (e) {
       Navigator.pop(dialogContext); // ❗ Always dismiss spinner
 

@@ -15,7 +15,11 @@ class AuthPage extends StatelessWidget{
         builder: (context, snapshot) {
           // User has logged in
           if (snapshot.hasData) {
-            return HomeScreen();
+            // Trigger routing instead of returning directly
+            Future.microtask(() {
+              Navigator.pushReplacementNamed(context, '/home');
+            });
+            return const SizedBox(); // temporary placeholder
           } else {
             // User has not logged in
             return LoginOrRegisterPage();
