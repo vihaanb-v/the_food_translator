@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -190,7 +192,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: 'Discard Scan',
+      barrierLabel: 'Discard Image',
       barrierColor: Colors.black54,
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) {
@@ -209,7 +211,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      "Discard this scan?",
+                      "Discard this image?",
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -218,7 +220,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      "Your current scan will be lost if you exit.",
+                      "Your current image will be lost if you exit.",
                       style: TextStyle(fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
@@ -342,16 +344,17 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                         ),
                         TextButton(
                           onPressed: () {
-                            Navigator.of(context).pop(); // Close popup
+                            Navigator.of(context).pop(); // Close the popup
                             _confirmPictureWithDish(
-                                title, description, healthyRecipe, mimicRecipe,
-                                _capturedImage!.path);
+                              title,
+                              description,
+                              healthyRecipe,
+                              mimicRecipe,
+                              _capturedImage!.path,
+                            );
                           },
-                          child: const Text(
-                            "Save",
-                            style: TextStyle(fontSize: 14, color: Colors.blue),
-                          ),
-                        ),
+                          child: const Text("Save", style: TextStyle(fontSize: 14, color: Colors.blue)),
+                        )
                       ],
                     ),
                   ],
@@ -376,11 +379,13 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     });
   }
 
-  void _confirmPictureWithDish(String title,
+  void _confirmPictureWithDish(
+      String title,
       String description,
       String healthy,
       String mimic,
-      String imagePath,) {
+      String imagePath,
+      ) async {
     final result = {
       'title': title,
       'description': description,
@@ -392,6 +397,40 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
     print("🔁 Returning to HomeScreen with: $result");
     Navigator.of(context).pop(result);
+
+    // ✅ Save to Firestore AFTER leaving CameraPage
+    try {
+      final file = File(imagePath);
+      final imageBytes = await file.readAsBytes();
+      final base64Image = base64Encode(imageBytes);
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+
+      final dishData = {
+        ...result,
+        'imageBytes': base64Image,
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('savedDishes')
+          .add(dishData);
+    } catch (e) {
+      print("🔥 Firestore save failed: $e");
+    }
+  }
+
+  Future<void> saveDishToFirestore(Map<String, dynamic> dishData) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('savedDishes')
+        .add(dishData);
   }
 
   @override

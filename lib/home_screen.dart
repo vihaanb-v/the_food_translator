@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'camera_screen.dart';
 import 'profile_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -17,26 +19,85 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   List<Map<String, dynamic>> savedDishes = [];
 
-  void _toggleFavorite(int index) {
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedDishesFromFirestore();
+  }
+
+  void _loadSavedDishesFromFirestore() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('savedDishes')
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    final List<Map<String, dynamic>> loadedDishes = [];
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      // Decode imageBytes to displayable image
+      final imageBytes = base64Decode(data['imageBytes']);
+      final tempDir = Directory.systemTemp;
+      final file = await File('${tempDir.path}/${doc.id}.jpg').writeAsBytes(imageBytes);
+
+      loadedDishes.add({
+        'id': doc.id,
+        'title': data['title'],
+        'description': data['description'],
+        'healthyRecipe': data['healthyRecipe'],
+        'mimicRecipe': data['mimicRecipe'],
+        'imagePath': file.path,
+        'isFavorite': data['isFavorite'] ?? false,
+      });
+    }
+
     setState(() {
-      savedDishes[index]['isFavorite'] = !(savedDishes[index]['isFavorite'] ?? false);
+      savedDishes = loadedDishes;
     });
   }
 
+  void _toggleFavorite(int index) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final dishId = savedDishes[index]['id'];
+    final current = savedDishes[index]['isFavorite'] ?? false;
+
+    setState(() {
+      savedDishes[index]['isFavorite'] = !current;
+    });
+
+    if (uid != null && dishId != null) {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('savedDishes')
+          .doc(dishId)
+          .update({'isFavorite': !current});
+    }
+  }
+
   void _openCamera() async {
-    final result = await Navigator.push(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(builder: (_) => const CameraPage()),
     );
 
-    if (result != null && result is Map<String, dynamic>) {
-      result['isFavorite'] = false;
+    if (result == null) return;
 
-      setState(() {
-        savedDishes.insert(0, result);
-        _listKey.currentState?.insertItem(0);
-      });
-    }
+    // Ensure required fields are present and typed correctly
+    if (!result.containsKey('imagePath') || result['imagePath'] == null) return;
+
+    result['isFavorite'] = result['isFavorite'] ?? false;
+
+    setState(() {
+      savedDishes.insert(0, result);
+      _listKey.currentState?.insertItem(0);
+    });
   }
 
   void _showDishPopup(Map<String, dynamic> dish) {
@@ -161,10 +222,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return Dismissible(
       key: Key(dish['imagePath'] + index.toString()),
       direction: DismissDirection.endToStart,
-      onDismissed: (_) {
+      onDismissed: (_) async {
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        final dishId = savedDishes[index]['id'];
+
         setState(() {
           savedDishes.removeAt(index);
         });
+
+        if (uid != null && dishId != null) {
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(uid)
+              .collection('savedDishes')
+              .doc(dishId)
+              .delete();
+        }
       },
       background: Container(
         alignment: Alignment.centerRight,

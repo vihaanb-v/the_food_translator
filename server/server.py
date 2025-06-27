@@ -49,7 +49,7 @@ def analyze():
                     "role": "system",
                     "content": (
                         "You are a culinary expert. Return ONLY a JSON object like: "
-                        "{\"dish_name\": \"Chicken Alfredo\"}. No intro, no explanation, just the JSON."
+                        "{\"title\": \"Chicken Alfredo\"}. No intro, no explanation, just the JSON."
                     )
                 },
                 {
@@ -66,17 +66,23 @@ def analyze():
         raw_json = name_response.choices[0].message.content.strip()
         print(f"Raw GPT JSON response: {raw_json}")
 
+        # Try decoding GPT output strictly
         try:
             parsed = json.loads(raw_json)
-            dish_name = parsed.get("dish_name", "").strip()
+            dish_name = (
+                    parsed.get("title")
+                    or parsed.get("dish_name")
+                    or ""
+            ).strip()
         except json.JSONDecodeError:
             dish_name = ""
 
+        # Clean up weird or generic values
         match = re.search(r"([A-Z][a-zA-Z\s\-']{2,50})", dish_name)
         if match:
             dish_name = match.group(0).strip()
 
-        if not dish_name or dish_name.lower() in {"dish", "food", "unknown"}:
+        if not dish_name or dish_name.lower() in {"dish", "food", "unknown", "none"}:
             dish_name = "Unknown Dish"
 
         print(f"Parsed dish name: '{dish_name}'")
@@ -88,7 +94,7 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a culinary expert. Write an accurate description describing the dish you see in the image."
+                        "You are a culinary expert. Write an accurate description describing the dish you see in the image. "
                         "Mention ingredients, flavors, and textures."
                     )
                 },
@@ -111,8 +117,8 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a professional nutritionist and chef. Create a healthier version of the dish."
-                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
+                        "You are a professional nutritionist and chef. Create a healthier version of the dish. "
+                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size, "
                         "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
                     )
                 },
@@ -133,8 +139,8 @@ def analyze():
                 {
                     "role": "system",
                     "content": (
-                        "You are a professional nutritionist and chef. Create an accurate mimic recipe of the dish."
-                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size,"
+                        "You are a professional nutritionist and chef. Create an accurate mimic recipe of the dish. "
+                        "Return only detailed recipe instructions. Include ingredients with quantities, serving size, "
                         "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
                     )
                 },
