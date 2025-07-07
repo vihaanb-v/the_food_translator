@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -23,6 +24,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   String _lastAnalyzedDescription = '';
   String _lastAnalyzedHealthy = '';
   String _lastAnalyzedMimic = '';
+  String _lastImageUrl = '';
 
   double _currentZoom = 1.0;
   final double _minZoom = 1.0;
@@ -136,7 +138,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
         _aiDescription = "Analyzing food...";
       });
 
-      _analyzeWithGPT(file);
+      await _analyzeWithGPT(file);
     } catch (e) {
       debugPrint('Error taking picture: $e');
     }
@@ -147,32 +149,29 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       final bytes = await imageFile.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      final response = await http.post(
-        Uri.parse('http://192.168.68.61:5000/analyze'),
+      final response = await http
+          .post(
+        Uri.parse('http://192.168.68.66:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
-      );
+      )
+          .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        // Extract all fields from the GPT response
         final rawTitle = (data['title'] as String?)?.trim();
-        final description = (data['description'] as String?)?.trim() ??
-            "No description available.";
-        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ??
-            "No healthy recipe available.";
-        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ??
-            "No mimic recipe available.";
+        final description = (data['description'] as String?)?.trim() ?? "No description available.";
+        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ?? "No healthy recipe available.";
+        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ?? "No mimic recipe available.";
+        final imageUrl = (data['imageUrl'] as String?)?.trim() ?? "";
 
-        // Clean and validate title
-        final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" &&
-            rawTitle.isNotEmpty)
+        final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
             ? rawTitle
             : "Unknown Dish";
 
-        // ✅ FIX: Store values so we can use them from the check button too
         setState(() {
+          _lastImageUrl = imageUrl;
           _lastAnalyzedTitle = title;
           _lastAnalyzedDescription = description;
           _lastAnalyzedHealthy = healthyRecipe;
@@ -181,10 +180,15 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
         _showFoodPopup(title, description, healthyRecipe, mimicRecipe);
       } else {
-        setState(() => _aiDescription = "Error: ${response.statusCode}");
+        setState(() => _aiDescription = "Server error: ${response.statusCode}");
+        debugPrint("⚠️ Server responded with status ${response.statusCode}: ${response.body}");
       }
+    } on TimeoutException {
+      setState(() => _aiDescription = "Server timed out. Try again.");
+      debugPrint("❌ GPT analysis request timed out.");
     } catch (e) {
       setState(() => _aiDescription = "Error analyzing image.");
+      debugPrint("🔥 Exception during GPT analysis: $e");
     }
   }
 
@@ -238,7 +242,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                         TextButton(
                           onPressed: () {
                             Navigator.of(context).pop(); // Close dialog
-                            _retakePicture(); // Reset preview but stay on camera
+                            _retakePicture(); // ✅ Fully reset preview + analysis
                           },
                           child: const Text(
                             "Discard",
@@ -276,92 +280,106 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     }
   }
 
-  void _showFoodPopup(String title,
+  void _showFoodPopup(
+      String title,
       String description,
       String healthyRecipe,
-      String mimicRecipe,) {
+      String mimicRecipe,
+      ) {
     showGeneralDialog(
       context: context,
       barrierDismissible: false,
       barrierLabel: 'Food Description',
       transitionDuration: const Duration(milliseconds: 500),
-      pageBuilder: (context, animation, secondaryAnimation) =>
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(20),
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery
-                    .of(context)
-                    .size
-                    .height * 0.66,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.all(20),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.66,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: Scrollbar(
-                        child: SingleChildScrollView(
-                          child: Text(
-                            description.isEmpty
-                                ? "No description available."
-                                : description,
-                            style: const TextStyle(fontSize: 16),
-                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Scrollbar(
+                      child: SingleChildScrollView(
+                        child: Text(
+                          description.isEmpty
+                              ? "No description available."
+                              : description,
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Close popup
-                            _retakePicture();
-                          },
-                          child: const Text(
-                            "Retake",
-                            style: TextStyle(fontSize: 14, color: Colors.black),
-                          ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop(); // Close popup only
+                          _retakePicture();
+                        },
+                        child: const Text(
+                          "Retake",
+                          style: TextStyle(fontSize: 14, color: Colors.black),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Close the popup
-                            _confirmPictureWithDish(
-                              title,
-                              description,
-                              healthyRecipe,
-                              mimicRecipe,
-                              _capturedImage!.path,
-                            );
-                          },
-                          child: const Text("Save", style: TextStyle(fontSize: 14, color: Colors.blue)),
-                        )
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                      TextButton(
+                        onPressed: () async {
+                          Navigator.of(context).pop(); // Close popup first
+
+                          if (_capturedImage == null) {
+                            print("❗ Tried to save but _capturedImage is null");
+                            return;
+                          }
+
+                          final result = await _confirmPictureWithDish(
+                            title,
+                            description,
+                            healthyRecipe,
+                            mimicRecipe,
+                            _capturedImage!.path,
+                          );
+
+                          if (!mounted || result == null) return;
+
+                          // ✅ Pop CameraPage and return result to HomeScreen
+                          Navigator.of(context).pop(result);
+                        },
+                        child: const Text(
+                          "Save",
+                          style: TextStyle(fontSize: 14, color: Colors.blue),
+                        ),
+                      )
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
+        );
+      },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return FadeTransition(
           opacity: animation,
@@ -371,54 +389,77 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     );
   }
 
-  void _retakePicture() {
+  void _retakePicture() async {
+    // ✅ Delete the old image from disk if it exists
+    if (_capturedImage != null) {
+      final file = File(_capturedImage!.path);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+          debugPrint("🗑️ Deleted discarded image: ${file.path}");
+        } catch (e) {
+          debugPrint("⚠️ Failed to delete image: $e");
+        }
+      }
+    }
+
+    // ✅ Reset state
     setState(() {
       _capturedImage = null;
       _showPreview = false;
       _aiDescription = "";
+      _lastAnalyzedTitle = '';
+      _lastAnalyzedDescription = '';
+      _lastAnalyzedHealthy = '';
+      _lastAnalyzedMimic = '';
     });
   }
 
-  void _confirmPictureWithDish(
+  Future<Map<String, dynamic>?> _confirmPictureWithDish(
       String title,
       String description,
       String healthy,
       String mimic,
       String imagePath,
       ) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      print("❌ No user signed in.");
+      return null;
+    }
+
+    if (_lastImageUrl.isEmpty) {
+      print("🚨 No Cloudinary image URL available.");
+      return null;
+    }
+
     final result = {
       'title': title,
       'description': description,
       'healthyRecipe': healthy,
       'mimicRecipe': mimic,
-      'imagePath': imagePath,
+      'imageUrl': '$_lastImageUrl?f_auto,q_auto',
       'isFavorite': false,
     };
 
-    print("🔁 Returning to HomeScreen with: $result");
-    Navigator.of(context).pop(result);
-
-    // ✅ Save to Firestore AFTER leaving CameraPage
     try {
-      final file = File(imagePath);
-      final imageBytes = await file.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
-
-      final dishData = {
-        ...result,
-        'imageBytes': base64Image,
-        'createdAt': FieldValue.serverTimestamp(),
-      };
-
       await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .collection('savedDishes')
-          .add(dishData);
+          .add({
+        ...result,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      setState(() {
+        _aiDescription = "";
+      });
+
+      return result;
     } catch (e) {
-      print("🔥 Firestore save failed: $e");
+      print("🔥 Error saving to Firestore: $e");
+      return null;
     }
   }
 
@@ -444,6 +485,11 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
               child: Image.file(
                 File(_capturedImage!.path),
                 fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) {
+                  return const Center(
+                    child: Text("⚠️ Could not load image", style: TextStyle(color: Colors.white)),
+                  );
+                },
               ),
             )
           else if (cameraController != null &&

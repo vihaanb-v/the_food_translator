@@ -6,6 +6,7 @@ import 'camera_screen.dart';
 import 'profile_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -41,22 +42,32 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final doc in snapshot.docs) {
       final data = doc.data();
 
-      // Decode imageBytes to displayable image
-      final imageBytes = base64Decode(data['imageBytes']);
-      final tempDir = Directory.systemTemp;
-      final file = await File('${tempDir.path}/${doc.id}.jpg').writeAsBytes(imageBytes);
+      final imageUrl = data['imageUrl'] as String?;
+      if (imageUrl == null || imageUrl.isEmpty) continue;
 
-      loadedDishes.add({
-        'id': doc.id,
-        'title': data['title'],
-        'description': data['description'],
-        'healthyRecipe': data['healthyRecipe'],
-        'mimicRecipe': data['mimicRecipe'],
-        'imagePath': file.path,
-        'isFavorite': data['isFavorite'] ?? false,
-      });
+      // ✅ Download Cloudinary image to local file
+      try {
+        final response = await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
+        final imageData = await response.close();
+        final bytes = await consolidateHttpClientResponseBytes(imageData);
+        final file = await File('${Directory.systemTemp.path}/${doc.id}.jpg')
+            .writeAsBytes(bytes);
+
+        loadedDishes.add({
+          'id': doc.id,
+          'title': data['title'],
+          'description': data['description'],
+          'healthyRecipe': data['healthyRecipe'],
+          'mimicRecipe': data['mimicRecipe'],
+          'imagePath': file.path,
+          'isFavorite': data['isFavorite'] ?? false,
+        });
+      } catch (e) {
+        debugPrint("❌ Failed to load image from $imageUrl: $e");
+      }
     }
 
+    if (!mounted) return;
     setState(() {
       savedDishes = loadedDishes;
     });
@@ -89,15 +100,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (result == null) return;
 
-    // Ensure required fields are present and typed correctly
-    if (!result.containsKey('imagePath') || result['imagePath'] == null) return;
+    final imageUrl = result['imageUrl'];
+    if (imageUrl == null || imageUrl is! String || imageUrl.isEmpty) return;
 
-    result['isFavorite'] = result['isFavorite'] ?? false;
+    try {
+      final response = await HttpClient().getUrl(Uri.parse(imageUrl));
+      final imageData = await response.close();
+      final bytes = await consolidateHttpClientResponseBytes(imageData);
+      final file = await File('${Directory.systemTemp.path}/${DateTime.now().millisecondsSinceEpoch}.jpg')
+          .writeAsBytes(bytes);
 
-    setState(() {
-      savedDishes.insert(0, result);
-      _listKey.currentState?.insertItem(0);
-    });
+      result['imagePath'] = file.path;
+      result['isFavorite'] = result['isFavorite'] ?? false;
+
+      setState(() {
+        savedDishes.insert(0, result);
+        _listKey.currentState?.insertItem(0);
+      });
+    } catch (e) {
+      debugPrint("❌ Failed to download image: $e");
+    }
   }
 
   void _showDishPopup(Map<String, dynamic> dish) {
@@ -223,20 +245,25 @@ class _HomeScreenState extends State<HomeScreen> {
       key: Key(dish['imagePath'] + index.toString()),
       direction: DismissDirection.endToStart,
       onDismissed: (_) async {
+        if (index < 0 || index >= savedDishes.length) return;
+
+        final removedDish = savedDishes[index];
+        final dishId = removedDish['id'] as String?;
         final uid = FirebaseAuth.instance.currentUser?.uid;
-        final dishId = savedDishes[index]['id'];
 
-        setState(() {
-          savedDishes.removeAt(index);
-        });
+        Future.microtask(() => _savedDishesRemoveAt(index));
 
-        if (uid != null && dishId != null) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(uid)
-              .collection('savedDishes')
-              .doc(dishId)
-              .delete();
+        if (uid != null && dishId != null && dishId.isNotEmpty) {
+          try {
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .collection('savedDishes')
+                .doc(dishId)
+                .delete();
+          } catch (e) {
+            debugPrint('Failed to delete dish from Firestore: $e');
+          }
         }
       },
       background: Container(
@@ -271,7 +298,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       right: 8,
                       child: IconButton(
                         icon: Icon(
-                          dish['isFavorite'] == true ? Icons.favorite : Icons.favorite_border,
+                          dish['isFavorite'] == true
+                              ? Icons.favorite
+                              : Icons.favorite_border,
                           color: Colors.redAccent,
                         ),
                         onPressed: () => _toggleFavorite(index),
@@ -300,6 +329,18 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _savedDishesRemoveAt(int index) {
+    final removedItem = savedDishes.removeAt(index);
+    _listKey.currentState?.removeItem(
+      index,
+          (context, animation) => SizeTransition(
+        sizeFactor: animation,
+        child: buildSavedDishButton(removedItem, index),
+      ),
+      duration: const Duration(milliseconds: 300),
     );
   }
 
