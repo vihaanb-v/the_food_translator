@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class ChatChefModal extends StatefulWidget {
   const ChatChefModal({super.key});
@@ -9,159 +12,196 @@ class ChatChefModal extends StatefulWidget {
 
 class _ChatChefModalState extends State<ChatChefModal> {
   final TextEditingController _controller = TextEditingController();
-  final List<Map<String, String>> _messages = [];
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _focusNode = FocusNode();
 
-  void _sendMessage(String text) {
-    if (text.trim().isEmpty) return;
-    setState(() {
-      _messages.add({'role': 'user', 'text': text});
-      _messages.add({
-        'role': 'gpt',
-        'text': _generateChefReply(text),
-      });
-    });
-    _controller.clear();
-  }
+  final String _endpoint = 'https://the-food-translator-jkzd.vercel.app/api/gpt-chef';
+  final String _context =
+      'User is chatting about a food dish. Suggest improvements or healthy alternatives.';
+
+  List<Map<String, dynamic>> _messages = [];
+  bool _isSending = false;
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty) return;
+    if (text.trim().isEmpty || _isSending) return;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final contextString = latestSavedDishTitleAndIngredients(); // define this
-
+    final userMsg = {'role': 'user', 'content': text};
     setState(() {
-      _messages.add({'role': 'user', 'text': text});
+      _messages.add(userMsg);
+      _isSending = true;
     });
 
-    final uri = Uri.parse("https://your-api.com/gpt-chef"); // replace
+    _controller.clear();
+    _focusNode.unfocus();
 
     try {
-      final response = await http.post(
-        uri,
-        headers: {"Content-Type": "application/json"},
+      final res = await http.post(
+        Uri.parse(_endpoint),
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "messages": _messages
-              .map((m) => {"role": m['role'], "content": m['text']})
-              .toList(),
-          "context": contextString,
+          'messages': _messages,
+          'context': _context,
         }),
       );
 
-      final data = jsonDecode(response.body);
-      final reply = data['reply'] ?? "Sorry, chef forgot what to say 😅";
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        final reply = json['reply'];
 
-      setState(() {
-        _messages.add({'role': 'gpt', 'text': reply});
-      });
-
-      if (uid != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(uid)
-            .collection('chatHistory')
-            .add({
-          'prompt': text,
-          'reply': reply,
-          'timestamp': FieldValue.serverTimestamp(),
-        });
+        if (reply != null && reply is String) {
+          setState(() {
+            _messages.add({'role': 'assistant', 'content': reply.trim()});
+          });
+        } else {
+          throw Exception("No valid 'reply' field in response");
+        }
+      } else {
+        throw Exception("HTTP ${res.statusCode}: ${res.reasonPhrase}");
       }
     } catch (e) {
       setState(() {
-        _messages.add({'role': 'gpt', 'text': 'Oops! GPT failed. Try again later.'});
+        _messages.add({
+          'role': 'assistant',
+          'content': '⚠️ Oops! Failed to get a response. Error: ${e.toString()}',
+        });
       });
+    } finally {
+      setState(() => _isSending = false);
+      await Future.delayed(const Duration(milliseconds: 100));
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent + 80,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     }
+  }
 
-    _controller.clear();
+  Widget _buildMessage(Map<String, dynamic> msg) {
+    final isUser = msg['role'] == 'user';
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          if (!isUser)
+            const CircleAvatar(
+              radius: 16,
+              backgroundImage: AssetImage('assets/chef_avatar.png'),
+            ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isUser
+                    ? Colors.white.withOpacity(0.85)
+                    : Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                msg['content'],
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.65,
-      maxChildSize: 0.9,
-      minChildSize: 0.5,
-      builder: (context, scrollController) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.8),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: Colors.white10),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 24,
+            bottom: bottomInset > 0 ? bottomInset : 20,
           ),
-          child: Column(
-            children: [
-              const Text(
-                "👨‍🍳 Chat with ChefGPT",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            color: Colors.black.withOpacity(0.6),
+            child: Column(
+              children: [
+                const Text(
+                  "👨‍🍳 Chat with ChefGPT",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  itemCount: _messages.length,
-                  itemBuilder: (context, index) {
-                    final msg = _messages[index];
-                    final isUser = msg['role'] == 'user';
-                    return Container(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: isUser
-                              ? Colors.white.withOpacity(0.9)
-                              : Colors.white.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          msg['text']!,
-                          style: TextStyle(
-                            color: isUser ? Colors.black : Colors.white,
-                            fontSize: 14,
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    itemCount: _messages.length + (_isSending ? 1 : 0),
+                    itemBuilder: (_, index) {
+                      if (index == _messages.length && _isSending) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              "ChefGPT is typing...",
+                              style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        );
+                      }
+                      return _buildMessage(_messages[index]);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        style: const TextStyle(color: Colors.white),
+                        textInputAction: TextInputAction.send,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.1),
+                          hintText: 'Ask something...',
+                          hintStyle: const TextStyle(color: Colors.white54),
+                          contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
                           ),
                         ),
+                        onSubmitted: _sendMessage,
                       ),
-                    );
-                  },
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: "Ask the chef something...",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        filled: true,
-                        fillColor: Colors.white10,
-                        contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      onSubmitted: _sendMessage,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: () => _sendMessage(_controller.text),
-                  ),
-                ],
-              )
-            ],
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.send, color: Colors.white),
+                      onPressed: () => _sendMessage(_controller.text),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
