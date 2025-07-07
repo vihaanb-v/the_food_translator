@@ -480,27 +480,31 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          if (_showPreview && _capturedImage != null)
-            Positioned.fill(
-              child: Image.file(
-                File(_capturedImage!.path),
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) {
-                  return const Center(
-                    child: Text("⚠️ Could not load image", style: TextStyle(color: Colors.white)),
-                  );
-                },
-              ),
+          // ✅ Camera Preview OR Captured Image OR Loading
+          Positioned.fill(
+            child: _showPreview && _capturedImage != null
+                ? Image.file(
+              File(_capturedImage!.path),
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) {
+                return const Center(
+                  child: Text(
+                    "⚠️ Could not load image",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                );
+              },
             )
-          else if (cameraController != null &&
-              cameraController!.value.isInitialized)
-            LayoutBuilder(
+                : (cameraController != null &&
+                cameraController!.value.isInitialized)
+                ? LayoutBuilder(
               builder: (context, constraints) {
                 return GestureDetector(
                   onScaleStart: _handleZoomStart,
                   onScaleUpdate: _handleZoomUpdate,
                   onScaleEnd: _handleZoomEnd,
-                  onTapUp: (d) => _handleFocusTap(d, constraints),
+                  onTapUp: (d) =>
+                      _handleFocusTap(d, constraints),
                   child: Stack(
                     children: [
                       Center(
@@ -510,8 +514,10 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                             child: FittedBox(
                               fit: BoxFit.contain,
                               child: SizedBox(
-                                width: cameraController!.value.previewSize!.height,
-                                height: cameraController!.value.previewSize!.width,
+                                width: cameraController!.value
+                                    .previewSize!.height,
+                                height: cameraController!.value
+                                    .previewSize!.width,
                                 child: CameraPreview(cameraController!),
                               ),
                             ),
@@ -526,7 +532,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                             width: 60,
                             height: 60,
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.yellow, width: 2),
+                              border: Border.all(
+                                  color: Colors.yellow, width: 2),
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
@@ -536,10 +543,10 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                 );
               },
             )
-          else
-            const Center(child: CircularProgressIndicator()),
+                : const Center(child: CircularProgressIndicator()),
+          ),
 
-          // ✅ Always-visible ✖ Close button with dynamic behavior
+          // ✅ Close Button
           Positioned(
             top: 50,
             right: 20,
@@ -556,95 +563,101 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
             ),
           ),
 
-          // ✅ Zoom UI (only show during live camera, not in preview)
-          if (!_showPreview) ...[
-            Positioned(
-              bottom: 140,
-              left: 0,
-              right: 0,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
+          // ✅ Zoom UI (only when camera is active)
+          if (!_showPreview && cameraController != null)
+            ...[
+              Positioned(
+                bottom: 140,
+                left: 0,
+                right: 0,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: Center(
+                    child: Container(
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "${_currentZoom.toStringAsFixed(1)}x",
+                        style: const TextStyle(
+                            color: Colors.black, fontSize: 18),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 120,
+                left: 40,
+                right: 40,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.white,
+                      inactiveTrackColor: Colors.white38,
+                      thumbColor: Colors.white,
+                      overlayColor: Colors.white24,
+                      trackHeight: 4.0,
+                      thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 8.0),
+                      overlayShape: const RoundSliderOverlayShape(
+                          overlayRadius: 16.0),
+                    ),
+                    child: Slider(
+                      value: _currentZoom,
+                      min: _minZoom,
+                      max: _maxZoom,
+                      onChanged: (value) async {
+                        setState(() => _currentZoom = value);
+                        await cameraController?.setZoomLevel(value);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
                 child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.8),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      "${_currentZoom.toStringAsFixed(1)}x",
-                      style: const TextStyle(color: Colors.black, fontSize: 18),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 120,
-              left: 40,
-              right: 40,
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: Colors.white,
-                    inactiveTrackColor: Colors.white38,
-                    thumbColor: Colors.white,
-                    overlayColor: Colors.white24,
-                    trackHeight: 4.0,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16.0),
-                  ),
-                  child: Slider(
-                    value: _currentZoom,
-                    min: _minZoom,
-                    max: _maxZoom,
-                    onChanged: (value) async {
-                      setState(() => _currentZoom = value);
-                      await cameraController?.setZoomLevel(value);
-                    },
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: _takePicture,
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 4),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 52,
-                        height: 52,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
+                  child: GestureDetector(
+                    onTap: _takePicture,
+                    child: Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 52,
+                          height: 52,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
 
-          // ✅ Loading overlay during GPT analysis
+          // ✅ GPT Analysis Overlay
           if (_aiDescription.isNotEmpty)
             Positioned(
               bottom: 80,
               left: 20,
               right: 20,
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                padding:
+                const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                 decoration: BoxDecoration(
                   color: Colors.black87,
                   borderRadius: BorderRadius.circular(12),
@@ -654,7 +667,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                   children: [
                     Text(
                       _aiDescription,
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 16),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -663,7 +677,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                       height: 24,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                     ),
                   ],

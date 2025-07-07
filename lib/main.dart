@@ -5,6 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'auth_page.dart';
 import 'home_screen.dart';
 import 'firebase_options.dart';
+import 'profile_page.dart';
+import 'profile_routes.dart'; // 🔥 all 4 sexy profile sub-pages
 
 // Optional: Remove this if not used elsewhere
 late final List<CameraDescription> cameras;
@@ -31,13 +33,16 @@ class MyApp extends StatelessWidget {
         fontFamily: 'Roboto',
         scaffoldBackgroundColor: Colors.grey[50],
         useMaterial3: true,
+        colorSchemeSeed: Colors.deepOrange,
       ),
-      home: const AuthPage(), // default entry point
+      home: const AuthPage(), // default entry point (checks login state)
       routes: {
-        '/home': (context) => HomeScreen(), // ✅ added named route
-        // You can add others if needed:
-        // '/login': (context) => LoginScreen(onTap: () {}),
-        // '/register': (context) => RegisterPage(onTap: () {}),
+        '/home': (context) => HomeScreen(),
+        '/profile': (context) => const ProfilePage(),
+        '/my-dishes': (context) => const MyDishesPage(),
+        '/favorites': (context) => const FavoritesPage(),
+        '/settings': (context) => const SettingsPage(),
+        '/privacy': (context) => const PrivacyPage(),
       },
     );
   }

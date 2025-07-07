@@ -7,6 +7,7 @@ import 'profile_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'chat_chef_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -171,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                         labelColor: Colors.black,
                         indicatorColor: Colors.grey,
-                        overlayColor: MaterialStatePropertyAll(Colors.transparent),
+                        overlayColor: WidgetStateProperty.all(Colors.transparent),
                       ),
                       Expanded(
                         child: TabBarView(
@@ -240,6 +241,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openChatChefModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black.withOpacity(0.7),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => const ChatChefModal(),
+    );
+  }
+
   Widget buildSavedDishButton(Map<String, dynamic> dish, int index) {
     return Dismissible(
       key: Key(dish['imagePath'] + index.toString()),
@@ -262,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 .doc(dishId)
                 .delete();
           } catch (e) {
-            debugPrint('Failed to delete dish from Firestore: $e');
+            debugPrint('❌ Failed to delete dish from Firestore: $e');
           }
         }
       },
@@ -270,61 +283,133 @@ class _HomeScreenState extends State<HomeScreen> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         color: Colors.black,
-        child: const Icon(Icons.delete, color: Colors.white),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
       ),
       child: AnimatedSlide(
         offset: Offset.zero,
         duration: const Duration(milliseconds: 300),
         child: GestureDetector(
           onTap: () => _showDishPopup(dish),
-          child: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 4,
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    Image.file(
-                      File(dish['imagePath']),
-                      width: double.infinity,
-                      height: 140,
-                      fit: BoxFit.cover,
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: IconButton(
-                        icon: Icon(
-                          dish['isFavorite'] == true
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          color: Colors.redAccent,
-                        ),
-                        onPressed: () => _toggleFavorite(index),
-                      ),
-                    )
-                  ],
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.15),
+                      width: 1,
+                    ),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        dish['title'] ?? 'Dish',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      // 🔥 Image with dark glass overlay
+                      Stack(
+                        children: [
+                          Image.file(
+                            File(dish['imagePath']),
+                            width: double.infinity,
+                            height: 160,
+                            fit: BoxFit.cover,
+                          ),
+                          Container(
+                            height: 160,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.black.withOpacity(0.35),
+                                  Colors.transparent,
+                                ],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                              ),
+                            ),
+                          ),
+                          // ❤️ Favorite Button
+                          Positioned(
+                            top: 12,
+                            right: 12,
+                            child: GestureDetector(
+                              onTap: () => _toggleFavorite(index),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOut,
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.85),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 6,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  dish['isFavorite'] == true
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: Colors.redAccent,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // 🍽 Dish info
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dish['title'] ?? 'Untitled Dish',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: const [
+                                Icon(Icons.restaurant_menu, size: 16, color: Colors.white70),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Tap to view recipe",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -461,6 +546,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
+      floatingActionButton: Padding(
+      padding: const EdgeInsets.only(bottom: 20, right: 10),
+      child: FloatingActionButton(
+        backgroundColor: Colors.black,
+        onPressed: _openChatChefModal,
+        child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+      ),
+    ),
+
     );
   }
 }

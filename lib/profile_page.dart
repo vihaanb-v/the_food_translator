@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dialogs.dart';
@@ -10,6 +11,7 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? "Unknown";
+    final photoUrl = user?.photoURL;
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -46,9 +48,14 @@ class ProfilePage extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.white,
-                      backgroundImage: const AssetImage('assets/profile_placeholder.jpg'),
+                      backgroundImage: photoUrl != null
+                          ? NetworkImage(photoUrl)
+                          : const AssetImage('assets/profile_placeholder.jpg')
+                      as ImageProvider,
                       onBackgroundImageError: (_, __) {},
-                      child: const Icon(Icons.person, size: 60, color: Colors.grey),
+                      child: photoUrl == null
+                          ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                          : null,
                     ),
                   ),
                 ),
@@ -72,10 +79,26 @@ class ProfilePage extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ListView(
                       children: [
-                        const GlassTile(icon: Icons.history, title: "My Dishes"),
-                        const GlassTile(icon: Icons.favorite, title: "Favorites"),
-                        const GlassTile(icon: Icons.settings, title: "Settings"),
-                        const GlassTile(icon: Icons.security, title: "Privacy"),
+                        GlassTile(
+                          icon: Icons.history,
+                          title: "My Dishes",
+                          onTap: () => Navigator.pushNamed(context, '/my-dishes'),
+                        ),
+                        GlassTile(
+                          icon: Icons.favorite,
+                          title: "Favorites",
+                          onTap: () => Navigator.pushNamed(context, '/favorites'),
+                        ),
+                        GlassTile(
+                          icon: Icons.settings,
+                          title: "Settings",
+                          onTap: () => Navigator.pushNamed(context, '/settings'),
+                        ),
+                        GlassTile(
+                          icon: Icons.security,
+                          title: "Privacy",
+                          onTap: () => Navigator.pushNamed(context, '/privacy'),
+                        ),
                         GlassTile(
                           icon: Icons.logout,
                           title: "Log Out",
@@ -123,7 +146,7 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-class GlassTile extends StatelessWidget {
+class GlassTile extends StatefulWidget {
   final IconData icon;
   final String title;
   final VoidCallback? onTap;
@@ -136,14 +159,40 @@ class GlassTile extends StatelessWidget {
   });
 
   @override
+  State<GlassTile> createState() => _GlassTileState();
+}
+
+class _GlassTileState extends State<GlassTile> {
+  bool _isTapped = false;
+
+  @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      splashColor: Colors.black12,
+      onTap: () {
+        setState(() => _isTapped = true);
+        Future.delayed(const Duration(milliseconds: 200), () {
+          setState(() => _isTapped = false);
+          if (widget.onTap != null) widget.onTap!();
+        });
+      },
+      splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
       borderRadius: BorderRadius.circular(20),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
         margin: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          boxShadow: _isTapped
+              ? [
+            BoxShadow(
+              color: Colors.orangeAccent.withOpacity(0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+            )
+          ]
+              : [],
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
@@ -162,9 +211,9 @@ class GlassTile extends StatelessWidget {
                 ],
               ),
               child: ListTile(
-                leading: Icon(icon, color: Colors.black87),
+                leading: Icon(widget.icon, color: Colors.black87),
                 title: Text(
-                  title,
+                  widget.title,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
