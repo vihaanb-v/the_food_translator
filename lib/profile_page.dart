@@ -1,11 +1,14 @@
 import 'dart:ui';
-import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dialogs.dart';
+import 'my_dishes_page.dart';
+import 'favorites_page.dart';
 
 class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  final List<Map<String, dynamic>> savedDishes;
+
+  const ProfilePage({super.key, required this.savedDishes});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +20,6 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       body: Stack(
         children: [
-          // Blurred top header
           Container(
             height: 280,
             decoration: const BoxDecoration(
@@ -48,7 +50,9 @@ class ProfilePage extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.white,
-                      backgroundImage: const AssetImage('assets/profile_placeholder.jpg'),
+                      backgroundImage: photoUrl != null
+                          ? NetworkImage(photoUrl)
+                          : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
                     ),
                   ),
                 ),
@@ -75,12 +79,26 @@ class ProfilePage extends StatelessWidget {
                         GlassTile(
                           icon: Icons.history,
                           title: "My Dishes",
-                          onTap: () => Navigator.pushNamed(context, '/my-dishes'),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MyDishesPage(savedDishes: savedDishes),
+                              ),
+                            );
+                          },
                         ),
                         GlassTile(
                           icon: Icons.favorite,
                           title: "Favorites",
-                          onTap: () => Navigator.pushNamed(context, '/favorites'),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FavoritesPage(savedDishes: savedDishes),
+                              ),
+                            );
+                          },
                         ),
                         GlassTile(
                           icon: Icons.settings,
@@ -96,15 +114,81 @@ class ProfilePage extends StatelessWidget {
                           icon: Icons.logout,
                           title: "Log Out",
                           onTap: () async {
-                            showLoadingDialog(context, "Logging out...");
-                            await Future.delayed(const Duration(milliseconds: 1200));
-                            await FirebaseAuth.instance.signOut();
-                            if (context.mounted) {
-                              Navigator.of(context).pop();
-                              Navigator.of(context).pushNamedAndRemoveUntil(
-                                '/',
-                                    (route) => false,
-                              );
+                            final confirmed = await showDialog<bool>(
+                              context: context,
+                              barrierDismissible: true,
+                              builder: (context) => Dialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text(
+                                        "Are you sure?",
+                                        style: TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        "Do you really want to log out?",
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(fontSize: 15, color: Colors.black87),
+                                      ),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: () => Navigator.of(context).pop(false),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: Colors.black87,
+                                                side: const BorderSide(color: Colors.black12),
+                                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                              ),
+                                              child: const Text("Cancel"),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: ElevatedButton(
+                                              onPressed: () => Navigator.of(context).pop(true),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.redAccent,
+                                                foregroundColor: Colors.white,
+                                                elevation: 0,
+                                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                              ),
+                                              child: const Text("Log Out"),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+
+                            if (confirmed == true) {
+                              showLoadingDialog(context, "Logging out...");
+                              await Future.delayed(const Duration(milliseconds: 1200));
+                              await FirebaseAuth.instance.signOut();
+                              if (context.mounted) {
+                                Navigator.of(context).pop(); // close loading dialog
+                                Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+                              }
                             }
                           },
                         ),

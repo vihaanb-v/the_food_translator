@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 
 // 🍳 My Dishes Page
 class MyDishesPage extends StatelessWidget {
-  const MyDishesPage({super.key});
+  final List<Map<String, dynamic>> savedDishes;
+
+  const MyDishesPage({super.key, required this.savedDishes});
 
   @override
   Widget build(BuildContext context) {
     return _SexyScaffold(
       title: "🍽 My Dishes",
-      child: const Center(
-        child: Text(
-          "Your culinary creations will appear here.\nKeep cooking greatness, chef 👨‍🍳",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-        ),
+      child: ListView.builder(
+        itemCount: savedDishes.length,
+        itemBuilder: (context, index) {
+          final dish = savedDishes[index];
+          return ListTile(
+            leading: const Icon(Icons.fastfood),
+            title: Text(dish['title'] ?? 'Unnamed Dish'),
+            subtitle: Text(dish['description'] ?? 'No description'),
+          );
+        },
       ),
     );
   }
@@ -21,18 +27,34 @@ class MyDishesPage extends StatelessWidget {
 
 // 💖 Favorites Page
 class FavoritesPage extends StatelessWidget {
-  const FavoritesPage({super.key});
+  final List<Map<String, dynamic>> savedDishes;
+
+  const FavoritesPage({super.key, required this.savedDishes});
 
   @override
   Widget build(BuildContext context) {
+    final favoriteDishes = savedDishes.where((dish) => dish['isFavorite'] == true).toList();
+
     return _SexyScaffold(
       title: "❤️ Favorites",
-      child: const Center(
+      child: favoriteDishes.isEmpty
+          ? const Center(
         child: Text(
-          "These are your MVPs. The greatest hits.\nFlavors worth saving forever.",
+          "No favorites yet. Add some love!",
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
         ),
+      )
+          : ListView.builder(
+        itemCount: favoriteDishes.length,
+        itemBuilder: (context, index) {
+          final dish = favoriteDishes[index];
+          return ListTile(
+            leading: const Icon(Icons.favorite, color: Colors.red),
+            title: Text(dish['title'] ?? 'Unnamed Dish'),
+            subtitle: Text(dish['description'] ?? 'No description'),
+          );
+        },
       ),
     );
   }
@@ -132,7 +154,7 @@ class _SettingTile extends StatelessWidget {
         leading: Icon(icon, color: Colors.deepOrange),
         title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {}, // You can implement setting toggles here
+        onTap: () {},
       ),
     );
   }

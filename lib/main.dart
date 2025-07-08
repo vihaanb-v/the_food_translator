@@ -6,9 +6,10 @@ import 'auth_page.dart';
 import 'home_screen.dart';
 import 'firebase_options.dart';
 import 'profile_page.dart';
-import 'profile_routes.dart'; // 🔥 all 4 sexy profile sub-pages
+import 'my_dishes_page.dart' as dishes;
+import 'favorites_page.dart' as favs;
+import 'profile_routes.dart'; // Still fine for SettingsPage and PrivacyPage
 
-// Optional: Remove this if not used elsewhere
 late final List<CameraDescription> cameras;
 
 Future<void> main() async {
@@ -35,14 +36,39 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.deepOrange,
       ),
-      home: const AuthPage(), // default entry point (checks login state)
-      routes: {
-        '/home': (context) => HomeScreen(),
-        '/profile': (context) => const ProfilePage(),
-        '/my-dishes': (context) => const MyDishesPage(),
-        '/favorites': (context) => const FavoritesPage(),
-        '/settings': (context) => const SettingsPage(),
-        '/privacy': (context) => const PrivacyPage(),
+      home: const AuthPage(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/home':
+            return MaterialPageRoute(builder: (_) => HomeScreen());
+
+          case '/profile':
+            final args = settings.arguments as List<Map<String, dynamic>>;
+            return MaterialPageRoute(
+              builder: (_) => ProfilePage(savedDishes: args),
+            );
+
+          case '/my-dishes':
+            final args = settings.arguments as List<Map<String, dynamic>>;
+            return MaterialPageRoute(
+              builder: (_) => dishes.MyDishesPage(savedDishes: args),
+            );
+
+          case '/favorites':
+            final args = settings.arguments as List<Map<String, dynamic>>;
+            return MaterialPageRoute(
+              builder: (_) => favs.FavoritesPage(savedDishes: args),
+            );
+
+          case '/settings':
+            return MaterialPageRoute(builder: (_) => const SettingsPage());
+
+          case '/privacy':
+            return MaterialPageRoute(builder: (_) => const PrivacyPage());
+
+          default:
+            return null;
+        }
       },
     );
   }

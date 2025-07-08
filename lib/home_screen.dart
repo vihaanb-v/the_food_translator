@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'camera_screen.dart';
 import 'profile_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'chat_chef_modal.dart';
 
@@ -20,6 +19,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   List<Map<String, dynamic>> savedDishes = [];
+
+  bool _isLoading = true;
+  bool _showContent = false;
 
   @override
   void initState() {
@@ -42,11 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
-
       final imageUrl = data['imageUrl'] as String?;
       if (imageUrl == null || imageUrl.isEmpty) continue;
 
-      // ✅ Download Cloudinary image to local file
       try {
         final response = await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
         final imageData = await response.close();
@@ -68,9 +68,20 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
+    // Optional: smooth UX delay to reduce flicker
+    await Future.delayed(const Duration(milliseconds: 400));
+
     if (!mounted) return;
     setState(() {
       savedDishes = loadedDishes;
+      _isLoading = false;
+    });
+
+    // Trigger fade-in transition
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) {
+        setState(() => _showContent = true);
+      }
     });
   }
 
@@ -257,6 +268,74 @@ class _HomeScreenState extends State<HomeScreen> {
     return Dismissible(
       key: Key(dish['imagePath'] + index.toString()),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        return await showDialog<bool>(
+          context: context,
+          barrierDismissible: true,
+          builder: (context) => Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Delete this dish?",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    "Are you sure you want to permanently remove this recipe?",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 15, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            side: const BorderSide(color: Colors.black12),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text("Cancel"),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text("Delete"),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
       onDismissed: (_) async {
         if (index < 0 || index >= savedDishes.length) return;
 
@@ -384,20 +463,20 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: Colors.black,
                                 letterSpacing: 0.3,
                               ),
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: const [
-                                Icon(Icons.restaurant_menu, size: 16, color: Colors.white70),
+                                Icon(Icons.restaurant_menu, size: 16, color: Colors.black),
                                 SizedBox(width: 6),
                                 Text(
                                   "Tap to view recipe",
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.white70,
+                                    color: Colors.black,
                                     fontStyle: FontStyle.italic,
                                   ),
                                 ),
@@ -459,9 +538,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.push(
+                Navigator.pushNamed(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  '/profile',
+                  arguments: savedDishes,
                 );
               },
             ),
@@ -469,7 +549,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      body: ListView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator()) // 🌀 Loader
+          : ListView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         children: [
           Center(
@@ -547,14 +629,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButton: Padding(
-      padding: const EdgeInsets.only(bottom: 20, right: 10),
-      child: FloatingActionButton(
-        backgroundColor: Colors.black,
-        onPressed: _openChatChefModal,
-        child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+        padding: const EdgeInsets.only(bottom: 20, right: 10),
+        child: FloatingActionButton(
+          backgroundColor: Colors.black,
+          onPressed: _openChatChefModal,
+          child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+        ),
       ),
-    ),
-
     );
   }
 }
