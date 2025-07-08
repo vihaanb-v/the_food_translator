@@ -1,18 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
 
-// Load environment variables
-dotenv.config();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY_CHATBOT,
+});
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY_CHATBOT });
-
-app.post('/api/gpt-chef', async (req, res) => {
   const { messages, context } = req.body;
 
   try {
@@ -37,7 +33,4 @@ app.post('/api/gpt-chef', async (req, res) => {
     console.error('GPT error:', err.message);
     res.status(500).json({ error: 'GPT failed' });
   }
-});
-
-// 👇 This is crucial for Vercel – no `app.listen()`!
-export default app;
+}

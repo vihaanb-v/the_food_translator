@@ -15,9 +15,9 @@ class _ChatChefModalState extends State<ChatChefModal> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
-  final String _endpoint = 'https://the-food-translator-jkzd.vercel.app/api/gpt-chef';
+  final String _endpoint = 'https://the-food-translator-mxoq.vercel.app/api/gpt-chef';
   final String _context =
-      'User is chatting about a food dish. Suggest improvements or healthy alternatives.';
+      'User is chatting about a food dish. Suggest improvements or healthy alternatives. Talk food like a pro.g';
 
   List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
