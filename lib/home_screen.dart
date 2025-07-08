@@ -156,9 +156,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Row(
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            Expanded(
+                            Center(
                               child: Text(
                                 dish['title'] ?? 'Dish',
                                 style: const TextStyle(
@@ -168,22 +169,34 @@ class _HomeScreenState extends State<HomeScreen> {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: const Icon(Icons.close, size: 20),
+                            Positioned(
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: const Icon(Icons.close, size: 20),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       TabBar(
-                        tabs: const [
-                          Tab(child: Text('Description')),
-                          Tab(child: Text('Healthier Recipe')),
-                          Tab(child: Text('Mimic Recipe')),
-                        ],
+                        isScrollable: false, // ← enable scroll to control spacing manually
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2), // tighter spacing
+                        indicatorPadding: EdgeInsets.zero,
+                        indicatorSize: TabBarIndicatorSize.label,
                         labelColor: Colors.black,
-                        indicatorColor: Colors.grey,
+                        unselectedLabelColor: Colors.grey,
                         overlayColor: WidgetStateProperty.all(Colors.transparent),
+                        labelStyle: const TextStyle(
+                          fontSize: 13.5, // slightly smaller
+                          fontWeight: FontWeight.w600,
+                        ),
+                        tabs: const [
+                          Tab(text: 'Description'),
+                          Tab(text: 'Healthier Recipe'),
+                          Tab(text: 'Mimic Recipe'),
+                        ],
                       ),
                       Expanded(
                         child: TabBarView(
@@ -296,7 +309,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 24),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: OutlinedButton(
@@ -329,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),

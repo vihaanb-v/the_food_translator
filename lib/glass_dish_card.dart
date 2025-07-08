@@ -15,59 +15,97 @@ class GlassDishCard extends StatelessWidget {
   });
 
   void _showPopup(BuildContext context) {
-    showDialog(
+    showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: DefaultTabController(
-          length: 3,
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.75,
-            width: MediaQuery.of(context).size.width * 0.9,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+      barrierLabel: 'Dish Popup',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
+          child: Center(
+            child: Dialog(
+              insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: DefaultTabController(
+                length: 3,
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.75,
+                  width: MediaQuery.of(context).size.width * 0.9,
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Text(
-                          dish['title'] ?? 'Dish',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                          textAlign: TextAlign.center,
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Center(
+                              child: Text(
+                                dish['title'] ?? 'Dish',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Positioned(
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () => Navigator.pop(context),
+                                child: const Icon(Icons.close, size: 20),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.close, size: 20),
+                      TabBar(
+                        isScrollable: false, // ← enable scroll to control spacing manually
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2), // tighter spacing
+                        indicatorPadding: EdgeInsets.zero,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        labelColor: Colors.black,
+                        unselectedLabelColor: Colors.grey,
+                        overlayColor: WidgetStateProperty.all(Colors.transparent),
+                        labelStyle: const TextStyle(
+                          fontSize: 13.5, // slightly smaller
+                          fontWeight: FontWeight.w600,
+                        ),
+                        tabs: const [
+                          Tab(text: 'Description'),
+                          Tab(text: 'Healthier Recipe'),
+                          Tab(text: 'Mimic Recipe'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _PopupContent(dish['imagePath'], dish['description']),
+                            _PopupContent(dish['imagePath'], dish['healthyRecipe']),
+                            _PopupContent(dish['imagePath'], dish['mimicRecipe']),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const TabBar(
-                  tabs: [
-                    Tab(child: Text('Description')),
-                    Tab(child: Text('Healthier Recipe')),
-                    Tab(child: Text('Mimic Recipe')),
-                  ],
-                  labelColor: Colors.black,
-                  indicatorColor: Colors.grey,
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _PopupContent(dish['imagePath'], dish['description']),
-                      _PopupContent(dish['imagePath'], dish['healthyRecipe']),
-                      _PopupContent(dish['imagePath'], dish['mimicRecipe']),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
