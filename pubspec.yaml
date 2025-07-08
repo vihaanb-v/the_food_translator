@@ -70,6 +70,7 @@ flutter:
 
   assets:
     - assets/profile_placeholder.jpg
+    - assets/gpt_avatar.png
 
   fonts:
     - family: Poppins

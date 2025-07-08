@@ -57,13 +57,13 @@ class _ChatChefModalState extends State<ChatChefModal> {
           throw Exception("No valid 'reply' field in response");
         }
       } else {
-        throw Exception("HTTP ${res.statusCode}: ${res.reasonPhrase}");
+        throw Exception("HTTP \${res.statusCode}: \${res.reasonPhrase}");
       }
     } catch (e) {
       setState(() {
         _messages.add({
           'role': 'assistant',
-          'content': '⚠️ Oops! Failed to get a response. Error: ${e.toString()}',
+          'content': '⚠️ Oops! Failed to get a response. Error: \${e.toString()}',
         });
       });
     } finally {
@@ -74,42 +74,66 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
   Future<void> _scrollToBottom() async {
     await Future.delayed(const Duration(milliseconds: 100));
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent + 80,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent + 100,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Widget _buildMessage(Map<String, dynamic> msg) {
     final isUser = msg['role'] == 'user';
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment:
+        isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isUser)
-            const CircleAvatar(
-              radius: 16,
-              backgroundImage: AssetImage('assets/chef_avatar.png'),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundImage:
+                const AssetImage('assets/gpt_avatar.png'),
+              ),
             ),
-          const SizedBox(width: 10),
           Flexible(
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isUser
-                    ? Colors.white.withOpacity(0.85)
-                    : Colors.white.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(14),
+                    ? Colors.white.withOpacity(0.9)
+                    : Colors.white.withOpacity(0.08),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isUser ? 16 : 0),
+                  bottomRight: Radius.circular(isUser ? 0 : 16),
+                ),
               ),
               child: Text(
                 msg['content'],
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(
+                  color: isUser ? Colors.black : Colors.white,
+                  fontSize: 15,
+                ),
               ),
             ),
           ),
+          if (isUser)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundImage:
+                const AssetImage('assets/profile_placeholder.jpg'),
+              ),
+            ),
         ],
       ),
     );
@@ -125,80 +149,96 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 24,
-            bottom: bottomInset > 0 ? bottomInset : 20,
-          ),
-          child: Container(
-            height: MediaQuery.of(context).size.height * 0.75,
-            color: Colors.black.withOpacity(0.6),
-            child: Column(
-              children: [
-                const Text(
-                  "👨‍🍳 Chat with ChefGPT",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length + (_isSending ? 1 : 0),
-                    itemBuilder: (_, index) {
-                      if (index == _messages.length && _isSending) {
-                        return const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: TypingIndicator(),
-                          ),
-                        );
-                      }
-                      return _buildMessage(_messages[index]);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
+    return SafeArea(
+      top: false,
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        curve: Curves.easeOut,
+        child: FractionallySizedBox(
+          heightFactor: 0.95,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Scaffold(
+                backgroundColor: Colors.black.withOpacity(0.6),
+                resizeToAvoidBottomInset: false,
+                body: Column(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        style: const TextStyle(color: Colors.white),
-                        textInputAction: TextInputAction.send,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.1),
-                          hintText: 'Ask something...',
-                          hintStyle: const TextStyle(color: Colors.white54),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onSubmitted: _sendMessage,
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        "👨‍🍳 Chat with the Chef",
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Colors.white),
-                      onPressed: () => _sendMessage(_controller.text),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.only(bottom: 10),
+                        itemCount: _messages.length + (_isSending ? 1 : 0),
+                        itemBuilder: (_, index) {
+                          if (_isSending && index == _messages.length) {
+                            return const Padding(
+                              padding: EdgeInsets.only(left: 16, top: 8),
+                              child: TypingIndicator(),
+                            );
+                          }
+                          return _buildMessage(_messages[index]);
+                        },
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
+                      color: Colors.transparent,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: TextField(
+                                controller: _controller,
+                                focusNode: _focusNode,
+                                style: const TextStyle(color: Colors.white),
+                                textInputAction: TextInputAction.send,
+                                decoration: const InputDecoration(
+                                  hintText: 'Type your message...',
+                                  hintStyle:
+                                  TextStyle(color: Colors.white60),
+                                  border: InputBorder.none,
+                                ),
+                                onSubmitted: _sendMessage,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () => _sendMessage(_controller.text),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.15),
+                              ),
+                              child:
+                              const Icon(Icons.send, color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -214,16 +254,35 @@ class TypingIndicator extends StatefulWidget {
   State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<TypingIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<int> _dots;
+  late Animation<double> _animation1;
+  late Animation<double> _animation2;
+  late Animation<double> _animation3;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this)
+    _controller = AnimationController(
+        duration: const Duration(milliseconds: 1500), vsync: this)
       ..repeat();
-    _dots = StepTween(begin: 1, end: 3).animate(_controller);
+
+    _animation1 = Tween<double>(begin: 0.3, end: 1).animate(
+      CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.0, 0.6, curve: Curves.easeInOut)),
+    );
+    _animation2 = Tween<double>(begin: 0.3, end: 1).animate(
+      CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.2, 0.8, curve: Curves.easeInOut)),
+    );
+    _animation3 = Tween<double>(begin: 0.3, end: 1).animate(
+      CurvedAnimation(
+          parent: _controller,
+          curve: const Interval(0.4, 1.0, curve: Curves.easeInOut)),
+    );
   }
 
   @override
@@ -232,16 +291,34 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     super.dispose();
   }
 
+  Widget _buildDot(Animation<double> animation) {
+    return FadeTransition(
+      opacity: animation,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Colors.white70,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _dots,
-      builder: (context, child) {
-        return Text(
-          'ChefGPT is typing${'.' * _dots.value}',
-          style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-        );
-      },
+    return SizedBox(
+      height: 30,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildDot(_animation1),
+          const SizedBox(width: 6),
+          _buildDot(_animation2),
+          const SizedBox(width: 6),
+          _buildDot(_animation3),
+        ],
+      ),
     );
   }
 }
