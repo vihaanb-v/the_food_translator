@@ -22,6 +22,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _isLoading = true;
   bool _showContent = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -132,6 +134,12 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint("❌ Failed to download image: $e");
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _showDishPopup(Map<String, dynamic> dish) {
@@ -562,10 +570,55 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator()) // 🌀 Loader
+          ? const Center(child: CircularProgressIndicator())
           : ListView(
         padding: const EdgeInsets.symmetric(vertical: 20),
         children: [
+          // 🔍 Search Bar (top spacing handled by ListView padding)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase().trim();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search recipes...',
+                prefixIcon: const Icon(Icons.search, color: Colors.black87),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.black54),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.black, width: 1),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.black, width: 1),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.black, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20), // ← even spacing
+
+          // 📸 Open Camera Button
           Center(
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
@@ -591,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Icon(Icons.camera_alt, color: Colors.white),
                     SizedBox(width: 8),
                     Text(
-                      "Open Camera",
+                      "Add a New Dish",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -603,41 +656,58 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          if (savedDishes.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 140),
-              child: Column(
-                children: const [
-                  Icon(Icons.fastfood, size: 90, color: Colors.grey),
-                  SizedBox(height: 22),
-                  Text(
-                    "No saved dishes yet",
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500),
+
+          const SizedBox(height: 20), // ← even spacing
+
+          // 🧠 Filtered dish logic
+          Builder(
+            builder: (context) {
+              final filteredDishes = savedDishes.where((dish) {
+                final title =
+                (dish['title'] ?? '').toString().toLowerCase();
+                final desc =
+                (dish['description'] ?? '').toString().toLowerCase();
+                return title.contains(_searchQuery) ||
+                    desc.contains(_searchQuery);
+              }).toList();
+
+              if (filteredDishes.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.fastfood, size: 90, color: Colors.grey),
+                      SizedBox(height: 22),
+                      Text(
+                        "No matching recipes found",
+                        style: TextStyle(
+                            fontSize: 22, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        "Try a different search or add a new dish.",
+                        style: TextStyle(
+                            fontSize: 14.5, color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 14),
-                  Text(
-                    "Tap the camera to translate your first recipe.",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          else
-            AnimatedList(
-              key: _listKey,
-              initialItemCount: savedDishes.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index, animation) {
-                final dish = savedDishes[index];
-                return SizeTransition(
-                  sizeFactor: animation,
-                  child: buildSavedDishButton(dish, index),
                 );
-              },
-            ),
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredDishes.length,
+                itemBuilder: (context, index) {
+                  return buildSavedDishButton(
+                      filteredDishes[index], index);
+                },
+              );
+            },
+          ),
         ],
       ),
       floatingActionButton: Padding(
@@ -645,7 +715,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: FloatingActionButton(
           backgroundColor: Colors.black,
           onPressed: _openChatChefModal,
-          child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+          child:
+          const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
         ),
       ),
     );
