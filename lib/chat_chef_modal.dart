@@ -15,9 +15,9 @@ class _ChatChefModalState extends State<ChatChefModal> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _focusNode = FocusNode();
 
-  final String _endpoint = 'https://the-food-translator-mxoq.vercel.app/api/gpt-chef';
+  final String _endpoint = 'https://chef-gpt-api-swart.vercel.app/api/chat';
   final String _context =
-      'User is chatting about a food dish. Suggest improvements or healthy alternatives. Talk food like a pro.g';
+      'User is chatting about a food dish. Suggest improvements or healthy alternatives. Talk food like a pro.';
 
   List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
@@ -25,7 +25,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty || _isSending) return;
 
-    final userMsg = {'role': 'user', 'content': text};
+    final userMsg = {'role': 'user', 'content': text.trim()};
     setState(() {
       _messages.add(userMsg);
       _isSending = true;
@@ -33,6 +33,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
     _controller.clear();
     _focusNode.unfocus();
+    await _scrollToBottom();
 
     try {
       final res = await http.post(
@@ -67,13 +68,17 @@ class _ChatChefModalState extends State<ChatChefModal> {
       });
     } finally {
       setState(() => _isSending = false);
-      await Future.delayed(const Duration(milliseconds: 100));
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent + 80,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      await _scrollToBottom();
     }
+  }
+
+  Future<void> _scrollToBottom() async {
+    await Future.delayed(const Duration(milliseconds: 100));
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent + 80,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   Widget _buildMessage(Map<String, dynamic> msg) {
@@ -155,10 +160,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
                           padding: EdgeInsets.only(top: 8),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text(
-                              "ChefGPT is typing...",
-                              style: TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                            ),
+                            child: TypingIndicator(),
                           ),
                         );
                       }
@@ -180,8 +182,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
                           fillColor: Colors.white.withOpacity(0.1),
                           hintText: 'Ask something...',
                           hintStyle: const TextStyle(color: Colors.white54),
-                          contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -202,6 +203,45 @@ class _ChatChefModalState extends State<ChatChefModal> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class TypingIndicator extends StatefulWidget {
+  const TypingIndicator({super.key});
+
+  @override
+  State<TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<int> _dots;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this)
+      ..repeat();
+    _dots = StepTween(begin: 1, end: 3).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _dots,
+      builder: (context, child) {
+        return Text(
+          'ChefGPT is typing${'.' * _dots.value}',
+          style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+        );
+      },
     );
   }
 }

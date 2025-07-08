@@ -49,3 +49,4 @@ server/secrets.env
 
 # Google Related
 lib/firebase_options.dart
+.vercel
