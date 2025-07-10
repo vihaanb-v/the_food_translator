@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,6 +8,7 @@ import 'profile_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'chat_chef_modal.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -24,6 +26,21 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showContent = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  dynamic _parseRecipeSafely(dynamic value) {
+    if (value is String) {
+      try {
+        return jsonDecode(value);
+      } catch (e) {
+        debugPrint("❌ Failed to decode recipe JSON: $e");
+        return null;
+      }
+    } else if (value is Map<String, dynamic>) {
+      return value;
+    } else {
+      return null;
+    }
+  }
 
   @override
   void initState() {
@@ -60,8 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
           'id': doc.id,
           'title': data['title'],
           'description': data['description'],
-          'healthyRecipe': data['healthyRecipe'],
-          'mimicRecipe': data['mimicRecipe'],
+          'healthyRecipe': _parseRecipeSafely(data['healthyRecipe']),
+          'mimicRecipe': _parseRecipeSafely(data['mimicRecipe']),
           'imagePath': file.path,
           'isFavorite': data['isFavorite'] ?? false,
         });
@@ -215,11 +232,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             _buildTabContent(
                               dish['imagePath'],
-                              dish['healthyRecipe'] ?? 'No healthy recipe available',
+                              dish['healthyRecipe'] is Map ? dish['healthyRecipe'] : 'No healthy recipe available',
                             ),
                             _buildTabContent(
                               dish['imagePath'],
-                              dish['mimicRecipe'] ?? 'No mimic recipe available',
+                              dish['mimicRecipe'] is Map ? dish['mimicRecipe'] : 'No mimic recipe available',
                             ),
                           ],
                         ),
@@ -246,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildTabContent(String imagePath, String text) {
+  Widget _buildTabContent(String imagePath, dynamic content) {
     return Column(
       children: [
         Image.file(
@@ -261,10 +278,12 @@ class _HomeScreenState extends State<HomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Scrollbar(
               child: SingleChildScrollView(
-                child: Text(
-                  text,
+                child: content is String
+                    ? Text(
+                  content,
                   style: const TextStyle(fontSize: 16),
-                ),
+                )
+                    : _buildStructuredRecipe(content),
               ),
             ),
           ),
@@ -273,15 +292,133 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openChatChefModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  Widget _buildStructuredRecipe(Map<String, dynamic> recipe) {
+    final nutrition = recipe['nutrition'] ?? {};
+
+    Widget sectionTitle(IconData icon, String text) {
+      return Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.black),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ],
+      );
+    }
+
+    Widget divider() => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Divider(color: Colors.black12.withOpacity(0.4), thickness: 1),
+    );
+
+    return AnimatedSlide(
+      duration: const Duration(milliseconds: 500),
+      offset: Offset(0, 0),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 500),
+        opacity: 1.0,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (recipe['title'] != null)
+              Text(
+                recipe['title'],
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+
+            const SizedBox(height: 10),
+
+            // ⏱️ Serving + Time
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.people_outline, size: 18),
+                    const SizedBox(width: 4),
+                    Text("Servings: ${recipe['servings'] ?? '--'}"),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.timer_outlined, size: 18),
+                    const SizedBox(width: 4),
+                    Text("${recipe['prepTime'] ?? '--'} prep"),
+                    const Text(" • "),
+                    Text("${recipe['cookTime'] ?? '--'} cook"),
+                  ],
+                ),
+              ],
+            ),
+
+            divider(),
+
+            // 🥗 Ingredients
+            sectionTitle(Icons.shopping_cart_outlined, "Ingredients"),
+            const SizedBox(height: 6),
+            ...List<String>.from(recipe['ingredients'] ?? [])
+                .map((item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text("• $item"),
+            )),
+
+            divider(),
+
+            // 👨‍🍳 Instructions
+            sectionTitle(Icons.restaurant_menu_outlined, "Instructions"),
+            const SizedBox(height: 6),
+            ...List<String>.from(recipe['instructions'] ?? [])
+                .asMap()
+                .entries
+                .map((entry) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text("${entry.key + 1}. ${entry.value}"),
+            )),
+
+            if (nutrition.isNotEmpty) ...[
+              divider(),
+              sectionTitle(Icons.health_and_safety_outlined, "Nutrition (per serving)"),
+              const SizedBox(height: 6),
+              Text("• Calories: ${nutrition['calories'] ?? '--'} kcal"),
+              Text("• Protein: ${nutrition['protein'] ?? '--'}"),
+              Text("• Carbs: ${nutrition['carbs'] ?? '--'}"),
+              Text("• Fat: ${nutrition['fat'] ?? '--'}"),
+            ],
+          ],
+        ),
       ),
-      builder: (_) => const ChatChefModal(),
+    );
+  }
+
+  void _openChatChefModal() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Chat Chef",
+      barrierColor: Colors.black.withOpacity(0.5),
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (context, anim1, anim2) => const ChatChefModal(),
     );
   }
 
@@ -535,12 +672,40 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.black,
         elevation: 2,
         centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Hero(
+            tag: 'app-logo',
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.25),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain, // Prevents side clipping
+                ),
+              ),
+            ),
+          ),
+        ),
         title: const Text(
-          'The Food Translator',
+          'Disypher',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             color: Colors.white,
             fontSize: 20,
+            letterSpacing: 0.5,
           ),
         ),
         actions: [

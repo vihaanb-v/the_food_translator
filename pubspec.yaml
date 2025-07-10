@@ -33,6 +33,10 @@ dependencies:
   http: ^1.1.0
   path: ^1.8.3
 
+  google_fonts: ^6.1.0
+
+  font_awesome_flutter: ^10.5.0
+
   camera: ^0.11.1
   path_provider: ^2.1.5
   permission_handler: ^12.0.0+1
@@ -71,6 +75,8 @@ flutter:
   assets:
     - assets/profile_placeholder.jpg
     - assets/gpt_avatar.png
+    - assets/logo.png
+    - assets/chef_hat.png
 
   fonts:
     - family: Poppins

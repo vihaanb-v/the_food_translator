@@ -125,7 +125,7 @@ def analyze():
             print("🔥 Error during description:", e)
             description = "No description available."
 
-        # --- Healthier Recipe ---
+        # --- Healthier Recipe (structured) ---
         try:
             healthy_response = openai.chat.completions.create(
                 model="gpt-4o",
@@ -133,25 +133,42 @@ def analyze():
                     {
                         "role": "system",
                         "content": (
-                            "You are a professional nutritionist and chef. Create a healthier version of the dish. "
-                            "Return only detailed recipe instructions. Include ingredients with quantities, serving size, "
-                            "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
+                            "You are a professional chef and nutritionist. Generate a structured JSON for a healthier version of the given dish. "
+                            "JSON format only. No markdown or explanations. Format:\n"
+                            "{"
+                            "\"title\": \"string\", "
+                            "\"ingredients\": [\"string\"], "
+                            "\"instructions\": [\"string\"], "
+                            "\"servings\": int, "
+                            "\"prepTime\": \"string\", "
+                            "\"cookTime\": \"string\", "
+                            "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
+                            "}"
                         )
                     },
                     {
                         "role": "user",
-                        "content": f"Create a healthier version of the dish '{dish_name}' without compromising on flavor."
+                        "content": f"Give a healthier recipe for the '{dish_name}' that you see in the image with that exact JSON structure only."
                     }
                 ],
                 max_tokens=1000,
                 timeout=60
             )
-            healthy_recipe = healthy_response.choices[0].message.content.strip()
+            healthy_raw = healthy_response.choices[0].message.content.strip()
+            healthy_recipe = json.loads(healthy_raw)
         except Exception as e:
             print("🔥 Error during healthy recipe:", e)
-            healthy_recipe = "No healthy recipe available."
+            healthy_recipe = {
+                "title": "Healthy Version",
+                "ingredients": [],
+                "instructions": [],
+                "servings": 0,
+                "prepTime": "",
+                "cookTime": "",
+                "nutrition": {}
+            }
 
-        # --- Mimic Recipe ---
+        # --- Mimic Recipe (structured) ---
         try:
             mimic_response = openai.chat.completions.create(
                 model="gpt-4o",
@@ -159,31 +176,48 @@ def analyze():
                     {
                         "role": "system",
                         "content": (
-                            "You are a professional nutritionist and chef. Create an accurate mimic recipe of the dish. "
-                            "Return only detailed recipe instructions. Include ingredients with quantities, serving size, "
-                            "prep and cook time, and full nutritional breakdown (calories, protein, carbs, fats)."
+                            "You are a professional chef. Generate a structured JSON recipe that closely mimics the original dish. "
+                            "JSON format only. No markdown or hashtags. Format:\n"
+                            "{"
+                            "\"title\": \"string\", "
+                            "\"ingredients\": [\"string\"], "
+                            "\"instructions\": [\"string\"], "
+                            "\"servings\": int, "
+                            "\"prepTime\": \"string\", "
+                            "\"cookTime\": \"string\", "
+                            "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
+                            "}"
                         )
                     },
                     {
                         "role": "user",
-                        "content": f"Based on its name and typical appearance, write a full recipe for '{dish_name}' that mimics the original."
+                        "content": f"Create a mimic recipe for the '{dish_name}' that you see in the image using that exact JSON structure."
                     }
                 ],
                 max_tokens=1000,
                 timeout=60
             )
-            mimic_recipe = mimic_response.choices[0].message.content.strip()
+            mimic_raw = mimic_response.choices[0].message.content.strip()
+            mimic_recipe = json.loads(mimic_raw)
         except Exception as e:
             print("🔥 Error during mimic recipe:", e)
-            mimic_recipe = "No mimic recipe available."
+            mimic_recipe = {
+                "title": "Mimic Version",
+                "ingredients": [],
+                "instructions": [],
+                "servings": 0,
+                "prepTime": "",
+                "cookTime": "",
+                "nutrition": {}
+            }
 
-        # ✅ Final JSON including image URL
+        # ✅ Final response
         return jsonify({
             "title": dish_name,
             "description": description,
             "healthyRecipe": healthy_recipe,
             "mimicRecipe": mimic_recipe,
-            "imageUrl": image_url  # ✅ Cloudinary URL for use in Flutter
+            "imageUrl": image_url
         })
 
     except Exception as e:

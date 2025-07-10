@@ -20,16 +20,31 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       body: Stack(
         children: [
-          Container(
-            height: 280,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFffecd2), Color(0xFFfcb69f)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // 🌅 Background logo image (instead of gradient)
+          SizedBox(
+            height: 300,
+            width: double.infinity,
+            child: Image.asset(
+              'assets/logo.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // 🧊 Gentle blur and dark overlay ONLY over top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 300,
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5),
+              child: Container(
+                color: Colors.black.withOpacity(0.15),
               ),
             ),
           ),
+
+          // 👤 Profile content
           SafeArea(
             child: Column(
               children: [
@@ -58,19 +73,23 @@ class ProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 const Text(
-                  "Vihaan Bhaduri",
+                  "Disypher",
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   email,
-                  style: const TextStyle(color: Colors.black54),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
                 ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 40),
+                // 🔽 Main menu
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -186,7 +205,7 @@ class ProfilePage extends StatelessWidget {
                               await Future.delayed(const Duration(milliseconds: 1200));
                               await FirebaseAuth.instance.signOut();
                               if (context.mounted) {
-                                Navigator.of(context).pop(); // close loading dialog
+                                Navigator.of(context).pop();
                                 Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
                               }
                             }
@@ -196,12 +215,12 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
+
+                // 🔙 Back to Home button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
+                    onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.arrow_back),
                     label: const Text("Back to Home"),
                     style: ElevatedButton.styleFrom(

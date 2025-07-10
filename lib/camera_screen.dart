@@ -22,8 +22,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   String _aiDescription = "";
   String _lastAnalyzedTitle = '';
   String _lastAnalyzedDescription = '';
-  String _lastAnalyzedHealthy = '';
-  String _lastAnalyzedMimic = '';
+  Map<String, dynamic> _lastAnalyzedHealthy = {};
+  Map<String, dynamic> _lastAnalyzedMimic = {};
   String _lastImageUrl = '';
 
   double _currentZoom = 1.0;
@@ -151,7 +151,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
       final response = await http
           .post(
-        Uri.parse('http://192.168.68.66:5000/analyze'),
+        Uri.parse('http://192.168.1.170:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
       )
@@ -162,8 +162,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
         final rawTitle = (data['title'] as String?)?.trim();
         final description = (data['description'] as String?)?.trim() ?? "No description available.";
-        final healthyRecipe = (data['healthyRecipe'] as String?)?.trim() ?? "No healthy recipe available.";
-        final mimicRecipe = (data['mimicRecipe'] as String?)?.trim() ?? "No mimic recipe available.";
+        final healthyRecipe = data['healthyRecipe'] ?? {};
+        final mimicRecipe = data['mimicRecipe'] ?? {};
         final imageUrl = (data['imageUrl'] as String?)?.trim() ?? "";
 
         final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
@@ -283,8 +283,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   void _showFoodPopup(
       String title,
       String description,
-      String healthyRecipe,
-      String mimicRecipe,
+      Map<String, dynamic> healthyRecipe,
+      Map<String, dynamic> mimicRecipe,
       ) {
     showGeneralDialog(
       context: context,
@@ -347,7 +347,9 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                       ),
                       TextButton(
                         onPressed: () async {
-                          Navigator.of(context).pop(); // Close popup first
+                          final safeContext = context; // ✅ Save safe reference
+
+                          Navigator.of(safeContext).pop(); // Close popup
 
                           if (_capturedImage == null) {
                             print("❗ Tried to save but _capturedImage is null");
@@ -364,8 +366,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
                           if (!mounted || result == null) return;
 
-                          // ✅ Pop CameraPage and return result to HomeScreen
-                          Navigator.of(context).pop(result);
+                          Navigator.of(safeContext).pop(result); // ✅ Use preserved context
                         },
                         child: const Text(
                           "Save",
@@ -410,16 +411,16 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       _aiDescription = "";
       _lastAnalyzedTitle = '';
       _lastAnalyzedDescription = '';
-      _lastAnalyzedHealthy = '';
-      _lastAnalyzedMimic = '';
+      _lastAnalyzedHealthy = {};
+      _lastAnalyzedMimic = {};
     });
   }
 
   Future<Map<String, dynamic>?> _confirmPictureWithDish(
       String title,
       String description,
-      String healthy,
-      String mimic,
+      Map<String, dynamic> healthy,
+      Map<String, dynamic> mimic,
       String imagePath,
       ) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;

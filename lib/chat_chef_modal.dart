@@ -57,13 +57,13 @@ class _ChatChefModalState extends State<ChatChefModal> {
           throw Exception("No valid 'reply' field in response");
         }
       } else {
-        throw Exception("HTTP \${res.statusCode}: \${res.reasonPhrase}");
+        throw Exception("HTTP ${res.statusCode}: ${res.reasonPhrase}");
       }
     } catch (e) {
       setState(() {
         _messages.add({
           'role': 'assistant',
-          'content': '⚠️ Oops! Failed to get a response. Error: \${e.toString()}',
+          'content': '⚠️ Oops! Failed to get a response. Error: ${e.toString()}',
         });
       });
     } finally {
@@ -83,8 +83,109 @@ class _ChatChefModalState extends State<ChatChefModal> {
     }
   }
 
+  String _stripMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*\*'), '')
+        .replaceAll(RegExp(r'\*'), '')
+        .replaceAll(RegExp(r'^#+\s*'), '')
+        .replaceAll(RegExp(r'\s+$'), '');
+  }
+
+  Widget _buildCleanRichText(String rawText) {
+    final lines = rawText.trim().split('\n');
+    final spans = <InlineSpan>[];
+
+    for (int i = 0; i < lines.length; i++) {
+      String line = lines[i].trim();
+
+      bool isMarkdownBold = line.startsWith('**') && line.endsWith('**');
+      bool isHeader = RegExp(r'^#+\s*').hasMatch(line);
+      bool isBold = isMarkdownBold || isHeader;
+
+      bool isBullet = line.startsWith('-') || line.startsWith('•');
+      bool isNumbered = RegExp(r'^\d+\.\s').hasMatch(line);
+
+      if (isBold) {
+        // Forcefully insert a full blank line BEFORE every bold line
+        spans.add(const TextSpan(text: '\n\n'));
+      }
+
+      if (isBold) {
+        final clean = _stripMarkdown(line);
+        spans.add(TextSpan(
+          text: '$clean\n',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: Colors.white,
+          ),
+        ));
+      } else if (isBullet) {
+        final clean = _stripMarkdown(line.replaceFirst(RegExp(r'^[-•]\s*'), ''));
+        spans.add(WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ',
+                    style: TextStyle(fontSize: 15, color: Colors.white)),
+                Expanded(
+                  child: Text(
+                    clean,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ));
+      } else if (isNumbered) {
+        final clean = _stripMarkdown(line);
+        spans.add(TextSpan(
+          text: '$clean\n',
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Colors.white,
+          ),
+        ));
+      } else if (line.isNotEmpty) {
+        final clean = _stripMarkdown(line);
+        spans.add(TextSpan(
+          text: '$clean\n',
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Colors.white,
+          ),
+        ));
+      }
+    }
+
+    // Trim final newlines
+    if (spans.isNotEmpty) {
+      final last = spans.last;
+      if (last is TextSpan && last.text != null && last.text!.endsWith('\n')) {
+        spans[spans.length - 1] = TextSpan(
+          text: last.text!.replaceAll(RegExp(r'\n+$'), ''),
+          style: last.style,
+        );
+      }
+    }
+
+    return RichText(text: TextSpan(children: spans));
+  }
+
   Widget _buildMessage(Map<String, dynamic> msg) {
     final isUser = msg['role'] == 'user';
+    final messageText = msg['content'] ?? '';
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
       child: Row(
@@ -94,17 +195,15 @@ class _ChatChefModalState extends State<ChatChefModal> {
         children: [
           if (!isUser)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.only(right: 10),
               child: CircleAvatar(
-                radius: 16,
-                backgroundImage:
-                const AssetImage('assets/gpt_avatar.png'),
+                radius: 18,
+                backgroundImage: const AssetImage('assets/gpt_avatar.png'),
               ),
             ),
           Flexible(
             child: Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isUser
                     ? Colors.white.withOpacity(0.9)
@@ -116,20 +215,39 @@ class _ChatChefModalState extends State<ChatChefModal> {
                   bottomRight: Radius.circular(isUser ? 0 : 16),
                 ),
               ),
-              child: Text(
-                msg['content'],
-                style: TextStyle(
-                  color: isUser ? Colors.black : Colors.white,
+              child: isUser
+                  ? Text(
+                messageText,
+                style: const TextStyle(
                   fontSize: 15,
+                  color: Colors.black,
+                  height: 1.4,
                 ),
+              )
+                  : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      "👨‍🍳 Chef",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  _buildCleanRichText(messageText),
+                ],
               ),
             ),
           ),
           if (isUser)
             Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 10),
               child: CircleAvatar(
-                radius: 16,
+                radius: 18,
                 backgroundImage:
                 const AssetImage('assets/profile_placeholder.jpg'),
               ),
@@ -149,99 +267,149 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: AnimatedPadding(
-        duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        curve: Curves.easeOut,
-        child: FractionallySizedBox(
-          heightFactor: 0.95,
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          // Full-screen blur
+          Positioned.fill(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Scaffold(
-                backgroundColor: Colors.black.withOpacity(0.6),
-                resizeToAvoidBottomInset: false,
-                body: Column(
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Text(
-                        "👨‍🍳 Chat with the Chef",
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white),
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.only(bottom: 10),
-                        itemCount: _messages.length + (_isSending ? 1 : 0),
-                        itemBuilder: (_, index) {
-                          if (_isSending && index == _messages.length) {
-                            return const Padding(
-                              padding: EdgeInsets.only(left: 16, top: 8),
-                              child: TypingIndicator(),
-                            );
-                          }
-                          return _buildMessage(_messages[index]);
-                        },
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-                      color: Colors.transparent,
-                      child: Row(
+              child: Container(color: Colors.black.withOpacity(0.6)),
+            ),
+          ),
+          Column(
+            children: [
+              // ✅ SafeArea fixes top cutoff
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const SizedBox(width: 36), // balances close button visually
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Container(
-                              padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: TextField(
-                                controller: _controller,
-                                focusNode: _focusNode,
-                                style: const TextStyle(color: Colors.white),
-                                textInputAction: TextInputAction.send,
-                                decoration: const InputDecoration(
-                                  hintText: 'Type your message...',
-                                  hintStyle:
-                                  TextStyle(color: Colors.white60),
-                                  border: InputBorder.none,
-                                ),
-                                onSubmitted: _sendMessage,
-                              ),
-                            ),
+                          Image.asset(
+                            'assets/chef_hat.png',
+                            width: 30,
+                            height: 30,
+                            fit: BoxFit.contain,
                           ),
                           const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () => _sendMessage(_controller.text),
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.15),
-                              ),
-                              child:
-                              const Icon(Icons.send, color: Colors.white),
+                          const Text(
+                            'Chat with the Chef',
+                            style: TextStyle(
+                              fontSize: 21,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.2,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+              // Chat messages
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(bottom: 30),
+                  itemCount: _messages.length + (_isSending ? 1 : 0),
+                  itemBuilder: (_, index) {
+                    if (_isSending && index == _messages.length) {
+                      return const Padding(
+                        padding: EdgeInsets.only(left: 16, top: 8),
+                        child: TypingIndicator(),
+                      );
+                    }
+                    return _buildMessage(_messages[index]);
+                  },
+                ),
+              ),
+
+              // Input field
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 250),
+                padding: EdgeInsets.only(bottom: bottomInset),
+                curve: Curves.easeOut,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: TextField(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              style: const TextStyle(color: Colors.white),
+                              textInputAction: TextInputAction.send,
+                              decoration: const InputDecoration(
+                                hintText: 'Type your message...',
+                                hintStyle: TextStyle(color: Colors.white60),
+                                border: InputBorder.none,
+                              ),
+                              onSubmitted: _sendMessage,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => _sendMessage(_controller.text),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.white.withOpacity(0.15),
+                            ),
+                            child: const Icon(Icons.send, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -254,8 +422,7 @@ class TypingIndicator extends StatefulWidget {
   State<TypingIndicator> createState() => _TypingIndicatorState();
 }
 
-class _TypingIndicatorState extends State<TypingIndicator>
-    with SingleTickerProviderStateMixin {
+class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation1;
   late Animation<double> _animation2;
@@ -270,18 +437,21 @@ class _TypingIndicatorState extends State<TypingIndicator>
 
     _animation1 = Tween<double>(begin: 0.3, end: 1).animate(
       CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.0, 0.6, curve: Curves.easeInOut)),
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
+      ),
     );
     _animation2 = Tween<double>(begin: 0.3, end: 1).animate(
       CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.2, 0.8, curve: Curves.easeInOut)),
+        parent: _controller,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeInOut),
+      ),
     );
     _animation3 = Tween<double>(begin: 0.3, end: 1).animate(
       CurvedAnimation(
-          parent: _controller,
-          curve: const Interval(0.4, 1.0, curve: Curves.easeInOut)),
+        parent: _controller,
+        curve: const Interval(0.4, 1.0, curve: Curves.easeInOut),
+      ),
     );
   }
 
