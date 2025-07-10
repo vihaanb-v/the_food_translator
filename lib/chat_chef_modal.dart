@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatChefModal extends StatefulWidget {
   const ChatChefModal({super.key});
@@ -22,6 +24,64 @@ class _ChatChefModalState extends State<ChatChefModal> {
   List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadChatHistory();
+  }
+
+  Future<void> _loadChatHistory() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('chatHistory')
+        .orderBy('timestamp')
+        .get();
+
+    final loadedMessages = snapshot.docs.map((doc) => doc.data()).toList();
+
+    setState(() {
+      _messages = List<Map<String, dynamic>>.from(loadedMessages);
+    });
+
+    await _scrollToBottom();
+  }
+
+  Future<void> _clearChatHistory() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final ref = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('chatHistory');
+
+    final batch = FirebaseFirestore.instance.batch();
+    final docs = await ref.get();
+    for (final doc in docs.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  Future<void> _saveMessage(String role, String content) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('chatHistory')
+        .add({
+      'role': role,
+      'content': content,
+      'timestamp': Timestamp.now(),
+    });
+  }
+
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty || _isSending) return;
 
@@ -34,6 +94,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
     _controller.clear();
     _focusNode.unfocus();
     await _scrollToBottom();
+    await _saveMessage('user', text.trim()); // ✅ Save user message
 
     try {
       final res = await http.post(
@@ -50,9 +111,11 @@ class _ChatChefModalState extends State<ChatChefModal> {
         final reply = json['reply'];
 
         if (reply != null && reply is String) {
+          final assistantMsg = {'role': 'assistant', 'content': reply.trim()};
           setState(() {
-            _messages.add({'role': 'assistant', 'content': reply.trim()});
+            _messages.add(assistantMsg);
           });
+          await _saveMessage('assistant', reply.trim()); // ✅ Save assistant reply
         } else {
           throw Exception("No valid 'reply' field in response");
         }
@@ -60,12 +123,13 @@ class _ChatChefModalState extends State<ChatChefModal> {
         throw Exception("HTTP ${res.statusCode}: ${res.reasonPhrase}");
       }
     } catch (e) {
+      final errorMsg =
+          '⚠️ Oops! Failed to get a response. Error: ${e.toString()}';
+      final errorReply = {'role': 'assistant', 'content': errorMsg};
       setState(() {
-        _messages.add({
-          'role': 'assistant',
-          'content': '⚠️ Oops! Failed to get a response. Error: ${e.toString()}',
-        });
+        _messages.add(errorReply);
       });
+      await _saveMessage('assistant', errorMsg); // ✅ Save error message
     } finally {
       setState(() => _isSending = false);
       await _scrollToBottom();
@@ -73,12 +137,12 @@ class _ChatChefModalState extends State<ChatChefModal> {
   }
 
   Future<void> _scrollToBottom() async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    await Future.delayed(const Duration(milliseconds: 150)); // Slightly longer wait
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent + 100,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
+        duration: const Duration(milliseconds: 600), // Slower slide
+        curve: Curves.easeOutQuart, // More natural easing
       );
     }
   }
@@ -227,17 +291,6 @@ class _ChatChefModalState extends State<ChatChefModal> {
                   : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      "👨‍🍳 Chef",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.85),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
                   _buildCleanRichText(messageText),
                 ],
               ),

@@ -7,6 +7,9 @@ from flask import Flask, request, jsonify
 import openai
 import cloudinary
 import cloudinary.uploader
+import time
+import hmac
+import hashlib
 
 app = Flask(__name__)
 
@@ -223,6 +226,43 @@ def analyze():
     except Exception as e:
         print("🔥 Global error during analysis:", str(e))
         return jsonify({"error": str(e)}), 500
+
+@app.route("/cloudinary-signature", methods=["POST"])
+def cloudinary_signature():
+    data = request.get_json()
+    public_id = data.get("public_id")
+    folder = data.get("folder")
+    timestamp = data.get("timestamp") or str(int(time.time()))
+    overwrite = str(data.get("overwrite", True)).lower()
+
+    if not public_id or not folder:
+        return jsonify({"error": "Missing public_id or folder"}), 400
+
+    # ✅ Include 'folder' in the signature
+    params_to_sign = {
+        "folder": folder,
+        "overwrite": overwrite,
+        "public_id": public_id,
+        "timestamp": timestamp
+    }
+
+    to_sign = "&".join(f"{k}={v}" for k, v in sorted(params_to_sign.items()))
+    print(f"🧾 TO_SIGN: {to_sign}")
+
+    signature = hmac.new(
+        os.environ["CLOUDINARY_API_SECRET"].encode("utf-8"),
+        to_sign.encode("utf-8"),
+        hashlib.sha1
+    ).hexdigest()
+
+    print(f"🔐 SERVER SIGNATURE: {signature}")
+
+    return jsonify({
+        "signature": signature,
+        "timestamp": timestamp,
+        "api_key": os.environ["CLOUDINARY_API_KEY"],
+        "cloud_name": os.environ["CLOUDINARY_CLOUD_NAME"]
+    })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

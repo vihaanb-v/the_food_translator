@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showContent = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Map<String, Set<String>> checkedIngredientsMap = {};
 
   dynamic _parseRecipeSafely(dynamic value) {
     if (value is String) {
@@ -119,6 +121,183 @@ class _HomeScreenState extends State<HomeScreen> {
           .doc(dishId)
           .update({'isFavorite': !current});
     }
+  }
+
+  Future<void> _updateShoppingList(String dishId) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final checked = checkedIngredientsMap[dishId]?.toList() ?? [];
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('shoppingList')
+        .doc(dishId)
+        .set({'items': checked});
+  }
+
+  void _showIngredientsPopup(BuildContext context, String dishId, List<String> ingredients) {
+    final checked = Set<String>.from(checkedIngredientsMap[dishId] ?? {});
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: StatefulBuilder(
+                builder: (context, setState) {
+                  return Container(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.07),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.black.withOpacity(0.4), // 🔥 Slight black border
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 🛒 Header centered
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            Icon(Icons.shopping_cart_outlined, size: 24, color: Colors.white),
+                            SizedBox(width: 10),
+                            Text(
+                              'Shopping List',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // ✅ Scrollable ingredient list
+                        Flexible(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 300),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: ingredients.length,
+                              itemBuilder: (context, index) {
+                                final ingredient = ingredients[index];
+                                final isChecked = checked.contains(ingredient);
+                                return CheckboxListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    ingredient,
+                                    style: TextStyle(
+                                      color: isChecked ? Colors.white : Colors.white.withOpacity(0.85),
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  value: isChecked,
+                                  activeColor: Colors.black, // BLACK checkbox
+                                  checkColor: Colors.white, // white checkmark
+                                  onChanged: (value) {
+                                    setState(() {
+                                      if (value == true) {
+                                        checked.add(ingredient);
+                                      } else {
+                                        checked.remove(ingredient);
+                                      }
+                                      checkedIngredientsMap[dishId] = checked;
+                                    });
+                                  },
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // 🧊 Add All / Save / Clear All
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    checked.addAll(ingredients);
+                                    checkedIngredientsMap[dishId] = checked;
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.black),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: const Text("Add All"),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  await _updateShoppingList(dishId);
+                                  Navigator.pop(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.black,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: const Text("Save"),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    checked.clear();
+                                    checkedIngredientsMap[dishId] = checked;
+                                  });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  side: const BorderSide(color: Colors.black),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                child: const Text("Clear"),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _openCamera() async {
@@ -370,6 +549,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
 
+            // 🍎 Move Nutrition section UP HERE
+            if (nutrition.isNotEmpty) ...[
+              divider(),
+              sectionTitle(Icons.health_and_safety_outlined, "Nutrition (per serving)"),
+              const SizedBox(height: 6),
+              Text("• Calories: ${nutrition['calories'] ?? '--'} kcal"),
+              Text("• Protein: ${nutrition['protein'] ?? '--'}"),
+              Text("• Carbs: ${nutrition['carbs'] ?? '--'}"),
+              Text("• Fat: ${nutrition['fat'] ?? '--'}"),
+            ],
+
             divider(),
 
             // 🥗 Ingredients
@@ -394,15 +584,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Text("${entry.key + 1}. ${entry.value}"),
             )),
 
-            if (nutrition.isNotEmpty) ...[
-              divider(),
-              sectionTitle(Icons.health_and_safety_outlined, "Nutrition (per serving)"),
-              const SizedBox(height: 6),
-              Text("• Calories: ${nutrition['calories'] ?? '--'} kcal"),
-              Text("• Protein: ${nutrition['protein'] ?? '--'}"),
-              Text("• Carbs: ${nutrition['carbs'] ?? '--'}"),
-              Text("• Fat: ${nutrition['fat'] ?? '--'}"),
-            ],
+            // ➕ Extra bottom spacing for polish
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -567,7 +750,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 🔥 Image with dark glass overlay
+                      // 🔥 Image with dark overlay and favorite
                       Stack(
                         children: [
                           Image.file(
@@ -589,7 +772,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                          // ❤️ Favorite Button
                           Positioned(
                             top: 12,
                             right: 12,
@@ -602,11 +784,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.white.withOpacity(0.85),
                                   shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 6,
-                                    ),
+                                  boxShadow: const [
+                                    BoxShadow(color: Colors.black26, blurRadius: 6),
                                   ],
                                 ),
                                 child: Icon(
@@ -622,35 +801,84 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
 
-                      // 🍽 Dish info
+                      // 🍽 Dish info row with cart + badge
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        child: Column(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              dish['title'] ?? 'Untitled Dish',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black,
-                                letterSpacing: 0.3,
+                            // Left side
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          dish['title'] ?? 'Untitled Dish',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ),
+                                      if ((checkedIngredientsMap[dish['id']]?.isNotEmpty ?? false))
+                                        Container(
+                                          margin: const EdgeInsets.only(left: 6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: const Text(
+                                            "✓ List",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.restaurant_menu, size: 16, color: Colors.black),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        "Tap to view recipe",
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.black,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: const [
-                                Icon(Icons.restaurant_menu, size: 16, color: Colors.black),
-                                SizedBox(width: 6),
-                                Text(
-                                  "Tap to view recipe",
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black,
-                                    fontStyle: FontStyle.italic,
-                                  ),
+
+                            // Right side: shopping cart
+                            GestureDetector(
+                              onTap: () {
+                                final ingredients = (dish['healthyRecipe']?['ingredients'] ?? []).cast<String>();
+                                final dishId = dish['id'] ?? dish['title'] ?? 'unknown';
+                                _showIngredientsPopup(context, dishId, ingredients);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              ],
+                                child: const Icon(Icons.shopping_cart_outlined, color: Colors.black, size: 20),
+                              ),
                             ),
                           ],
                         ),
@@ -927,12 +1155,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 20, right: 10),
+        padding: EdgeInsets.only(
+          bottom: max(MediaQuery.of(context).viewPadding.bottom - 30, 4),
+          right: 10,
+        ),
         child: FloatingActionButton(
           backgroundColor: Colors.black,
           onPressed: _openChatChefModal,
-          child:
-          const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
+          child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
         ),
       ),
     );

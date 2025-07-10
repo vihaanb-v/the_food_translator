@@ -1,230 +1,440 @@
 import 'dart:ui';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'dialogs.dart';
 import 'my_dishes_page.dart';
 import 'favorites_page.dart';
 import 'navigation_utils.dart';
+import 'cloudinary_config.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   final List<Map<String, dynamic>> savedDishes;
-
   const ProfilePage({super.key, required this.savedDishes});
 
   @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final user = FirebaseAuth.instance.currentUser!;
+  String? updatedPhotoUrl;
+  bool _isUploading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    updatedPhotoUrl = user.photoURL;
+  }
+
+  Future<void> _showImagePickerOptions() async {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(26),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: Colors.black.withOpacity(0.2)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 28),
+                    const SizedBox(height: 12),
+                    const Text(
+                      "Update Profile Picture",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.camera);
+                      },
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Take a Photo"),
+                      style: _pickerButtonStyle(),
+                    ),
+                    const SizedBox(height: 14),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _pickImage(ImageSource.gallery);
+                      },
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text("Choose from Gallery"),
+                      style: _pickerButtonStyle(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  ButtonStyle _pickerButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: Colors.black,
+      foregroundColor: Colors.white,
+      minimumSize: const Size.fromHeight(48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null) return;
+
+    setState(() => _isUploading = true); // 🔥 Start loader
+
+    final url = await _uploadToCloudinary(File(picked.path));
+
+    if (url != null) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      await user.updatePhotoURL('$url?v=$timestamp');
+      await user.reload();
+      final refreshedUser = FirebaseAuth.instance.currentUser!;
+      setState(() => updatedPhotoUrl = refreshedUser.photoURL);
+    }
+
+    setState(() => _isUploading = false); // ✅ End loader
+  }
+
+  Future<String?> _uploadToCloudinary(File imageFile) async {
+    final uid = user.uid;
+    final publicId = generateUserPublicId(uid); // e.g., "pfp_abc123"
+    final folder = generateUserFolder(uid);     // e.g., "users/abc123"
+    final signatureUrl = Uri.parse("http://192.168.1.170:5000/cloudinary-signature");
+
+    // ✅ STEP 1: Generate a synced timestamp (in seconds)
+    final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
+
+    try {
+      // ✅ STEP 2: Get signature using the same timestamp
+      final sigResponse = await http.post(
+        signatureUrl,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "public_id": publicId,
+          "folder": folder,
+          "timestamp": timestamp,
+          "overwrite": true,
+        }),
+      );
+
+      if (sigResponse.statusCode != 200) {
+        debugPrint("❌ Signature fetch failed: ${sigResponse.body}");
+        return null;
+      }
+
+      final sigData = jsonDecode(sigResponse.body);
+      final uploadUrl = Uri.parse(
+        'https://api.cloudinary.com/v1_1/${sigData["cloud_name"]}/image/upload',
+      );
+
+      // ✅ STEP 3: Upload image with exact same timestamp
+      debugPrint("📦 Upload fields:");
+      debugPrint("  api_key = ${sigData["api_key"]}");
+      debugPrint("  timestamp = $timestamp");
+      debugPrint("  signature = ${sigData["signature"]}");
+      debugPrint("  public_id = $publicId");
+      debugPrint("  folder = $folder");
+      debugPrint("  overwrite = true");
+
+      final request = http.MultipartRequest("POST", uploadUrl)
+        ..fields["api_key"] = sigData["api_key"]
+        ..fields["timestamp"] = timestamp
+        ..fields["signature"] = sigData["signature"]
+        ..fields["public_id"] = publicId
+        ..fields["folder"] = folder
+        ..fields["overwrite"] = "true"
+        ..files.add(await http.MultipartFile.fromPath("file", imageFile.path));
+
+      final uploadResponse = await request.send();
+      final responseBody = await uploadResponse.stream.bytesToString();
+
+      if (uploadResponse.statusCode == 200) {
+        final jsonResp = json.decode(responseBody);
+        return jsonResp["secure_url"];
+      } else {
+        debugPrint("❌ Upload failed: $responseBody");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("🔥 Upload error: $e");
+      return null;
+    }
+  }
+
+  Widget _buildMainContent(String email, String? photoUrl) {
+    return Stack(
+      children: [
+        SizedBox(
+          height: 300,
+          width: double.infinity,
+          child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 300,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5),
+            child: Container(color: Colors.black.withOpacity(0.15)),
+          ),
+        ),
+        SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  GestureDetector(
+                    onTap: _showImagePickerOptions,
+                    child: Hero(
+                      tag: 'profile-pic',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 12,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: CircleAvatar(
+                          key: ValueKey(photoUrl),
+                          radius: 60,
+                          backgroundColor: Colors.white,
+                          backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                              ? NetworkImage(photoUrl)
+                              : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: _showImagePickerOptions,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.edit, size: 16, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                "Disypher",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                email,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 40),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: ListView(
+                    children: [
+                      GlassTile(
+                        icon: Icons.history,
+                        title: "My Dishes",
+                        onTap: () => smoothPush(context, MyDishesPage(savedDishes: widget.savedDishes)),
+                      ),
+                      GlassTile(
+                        icon: Icons.favorite,
+                        title: "Favorites",
+                        onTap: () => smoothPush(context, FavoritesPage(savedDishes: widget.savedDishes)),
+                      ),
+                      GlassTile(
+                        icon: Icons.settings,
+                        title: "Settings",
+                        onTap: () => Navigator.pushNamed(context, '/settings'),
+                      ),
+                      GlassTile(
+                        icon: Icons.security,
+                        title: "Privacy",
+                        onTap: () => Navigator.pushNamed(context, '/privacy'),
+                      ),
+                      GlassTile(
+                        icon: Icons.logout,
+                        title: "Log Out",
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Dialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      "Are you sure?",
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      "Do you really want to log out?",
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 15, color: Colors.black87),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: () => Navigator.of(context).pop(false),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: Colors.black87,
+                                              side: const BorderSide(color: Colors.black12),
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text("Cancel"),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () => Navigator.of(context).pop(true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.redAccent,
+                                              foregroundColor: Colors.white,
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                            ),
+                                            child: const Text("Log Out"),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                          if (confirmed == true) {
+                            showLoadingDialog(context, "Logging out...");
+                            await Future.delayed(const Duration(milliseconds: 1200));
+                            await FirebaseAuth.instance.signOut();
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                              Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text("Back to Home"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final email = user?.email ?? "Unknown";
-    final photoUrl = user?.photoURL;
+    final photoUrl = updatedPhotoUrl;
+    final email = user.email ?? "Unknown";
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Stack(
         children: [
-          // 🌅 Background logo image
-          SizedBox(
-            height: 300,
-            width: double.infinity,
-            child: Image.asset(
-              'assets/logo.png',
-              fit: BoxFit.cover,
-            ),
-          ),
-
-          // 🧊 Blur and dark overlay
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 300,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5),
-              child: Container(
-                color: Colors.black.withOpacity(0.15),
+          _buildMainContent(email, photoUrl),
+          if (_isUploading)
+            Container(
+              color: Colors.black.withOpacity(0.6),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  strokeWidth: 4,
+                ),
               ),
             ),
-          ),
-
-          // 👤 Profile content
-          SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 30),
-                Hero(
-                  tag: 'profile-pic',
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.white,
-                      backgroundImage: photoUrl != null
-                          ? NetworkImage(photoUrl)
-                          : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Disypher",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // 🔽 Menu
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ListView(
-                      children: [
-                        GlassTile(
-                          icon: Icons.history,
-                          title: "My Dishes",
-                          onTap: () => smoothPush(context, MyDishesPage(savedDishes: savedDishes)),
-                        ),
-                        GlassTile(
-                          icon: Icons.favorite,
-                          title: "Favorites",
-                          onTap: () => smoothPush(context, FavoritesPage(savedDishes: savedDishes)),
-                        ),
-                        GlassTile(
-                          icon: Icons.settings,
-                          title: "Settings",
-                          onTap: () => Navigator.pushNamed(context, '/settings'),
-                        ),
-                        GlassTile(
-                          icon: Icons.security,
-                          title: "Privacy",
-                          onTap: () => Navigator.pushNamed(context, '/privacy'),
-                        ),
-                        GlassTile(
-                          icon: Icons.logout,
-                          title: "Log Out",
-                          onTap: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              barrierDismissible: true,
-                              builder: (context) => Dialog(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                insetPadding: const EdgeInsets.symmetric(horizontal: 32),
-                                child: Padding(
-                                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Text(
-                                        "Are you sure?",
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      const Text(
-                                        "Do you really want to log out?",
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(fontSize: 15, color: Colors.black87),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: () => Navigator.of(context).pop(false),
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: Colors.black87,
-                                                side: const BorderSide(color: Colors.black12),
-                                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                              child: const Text("Cancel"),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: ElevatedButton(
-                                              onPressed: () => Navigator.of(context).pop(true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.redAccent,
-                                                foregroundColor: Colors.white,
-                                                elevation: 0,
-                                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                              child: const Text("Log Out"),
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-
-                            if (confirmed == true) {
-                              showLoadingDialog(context, "Logging out...");
-                              await Future.delayed(const Duration(milliseconds: 1200));
-                              await FirebaseAuth.instance.signOut();
-                              if (context.mounted) {
-                                Navigator.of(context).pop(); // close loading
-                                Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-                              }
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // 🔙 Back button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text("Back to Home"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -236,12 +446,7 @@ class GlassTile extends StatefulWidget {
   final String title;
   final VoidCallback? onTap;
 
-  const GlassTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.onTap,
-  });
+  const GlassTile({super.key, required this.icon, required this.title, this.onTap});
 
   @override
   State<GlassTile> createState() => _GlassTileState();
