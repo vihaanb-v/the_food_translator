@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'auth_page.dart';
@@ -8,16 +7,14 @@ import 'firebase_options.dart';
 import 'profile_page.dart';
 import 'my_dishes_page.dart' as dishes;
 import 'favorites_page.dart' as favs;
-import 'profile_routes.dart'; // Still fine for SettingsPage and PrivacyPage
-
-late final List<CameraDescription> cameras;
+import 'profile_routes.dart'; // SettingsPage, PrivacyPage
+import 'splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  cameras = await availableCameras();
 
   runApp(const MyApp());
 }
@@ -36,7 +33,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.deepOrange,
       ),
-      home: const AuthPage(),
+      home: const SplashScreen(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/home':

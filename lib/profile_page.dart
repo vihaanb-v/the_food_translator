@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'dialogs.dart';
 import 'my_dishes_page.dart';
 import 'favorites_page.dart';
+import 'navigation_utils.dart';
 
 class ProfilePage extends StatelessWidget {
   final List<Map<String, dynamic>> savedDishes;
@@ -20,7 +21,7 @@ class ProfilePage extends StatelessWidget {
       backgroundColor: Colors.grey[100],
       body: Stack(
         children: [
-          // 🌅 Background logo image (instead of gradient)
+          // 🌅 Background logo image
           SizedBox(
             height: 300,
             width: double.infinity,
@@ -30,7 +31,7 @@ class ProfilePage extends StatelessWidget {
             ),
           ),
 
-          // 🧊 Gentle blur and dark overlay ONLY over top
+          // 🧊 Blur and dark overlay
           Positioned(
             top: 0,
             left: 0,
@@ -89,7 +90,8 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 40),
-                // 🔽 Main menu
+
+                // 🔽 Menu
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -98,26 +100,12 @@ class ProfilePage extends StatelessWidget {
                         GlassTile(
                           icon: Icons.history,
                           title: "My Dishes",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MyDishesPage(savedDishes: savedDishes),
-                              ),
-                            );
-                          },
+                          onTap: () => smoothPush(context, MyDishesPage(savedDishes: savedDishes)),
                         ),
                         GlassTile(
                           icon: Icons.favorite,
                           title: "Favorites",
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FavoritesPage(savedDishes: savedDishes),
-                              ),
-                            );
-                          },
+                          onTap: () => smoothPush(context, FavoritesPage(savedDishes: savedDishes)),
                         ),
                         GlassTile(
                           icon: Icons.settings,
@@ -137,7 +125,9 @@ class ProfilePage extends StatelessWidget {
                               context: context,
                               barrierDismissible: true,
                               builder: (context) => Dialog(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
                                 insetPadding: const EdgeInsets.symmetric(horizontal: 32),
                                 child: Padding(
                                   padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -160,7 +150,6 @@ class ProfilePage extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 24),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
                                             child: OutlinedButton(
@@ -205,7 +194,7 @@ class ProfilePage extends StatelessWidget {
                               await Future.delayed(const Duration(milliseconds: 1200));
                               await FirebaseAuth.instance.signOut();
                               if (context.mounted) {
-                                Navigator.of(context).pop();
+                                Navigator.of(context).pop(); // close loading
                                 Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
                               }
                             }
@@ -216,7 +205,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
 
-                // 🔙 Back to Home button
+                // 🔙 Back button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                   child: ElevatedButton.icon(
@@ -279,41 +268,47 @@ class _GlassTileState extends State<GlassTile> {
         curve: Curves.easeOut,
         margin: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          boxShadow: _isTapped
-              ? [
-            BoxShadow(
-              color: Colors.orangeAccent.withOpacity(0.3),
-              blurRadius: 20,
-              spreadRadius: 2,
-            )
-          ]
-              : [],
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withOpacity(0.8),
+              Colors.white.withOpacity(0.6),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            if (_isTapped)
+              BoxShadow(
+                color: Colors.orangeAccent.withOpacity(0.4),
+                blurRadius: 20,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              )
+            else
+              BoxShadow(
+                color: Colors.black26.withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+          ],
+          border: Border.all(color: Colors.black.withOpacity(0.15), width: 1),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white70, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: ListTile(
-                leading: Icon(widget.icon, color: Colors.black87),
-                title: Text(
-                  widget.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+            child: ListTile(
+              leading: Icon(widget.icon, color: Colors.black, size: 26),
+              title: Text(
+                widget.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Colors.black87,
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
               ),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.black54),
             ),
           ),
         ),

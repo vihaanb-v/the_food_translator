@@ -67,7 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (imageUrl == null || imageUrl.isEmpty) continue;
 
       try {
-        final response = await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
+        final response =
+        await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
         final imageData = await response.close();
         final bytes = await consolidateHttpClientResponseBytes(imageData);
         final file = await File('${Directory.systemTemp.path}/${doc.id}.jpg')
@@ -84,23 +85,20 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       } catch (e) {
         debugPrint("❌ Failed to load image from $imageUrl: $e");
+        // Continue even if one image fails
       }
     }
 
-    // Optional: smooth UX delay to reduce flicker
-    await Future.delayed(const Duration(milliseconds: 400));
-
+    // Always end loading state even if image download failed
     if (!mounted) return;
     setState(() {
       savedDishes = loadedDishes;
       _isLoading = false;
     });
 
-    // Trigger fade-in transition
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (mounted) {
-        setState(() => _showContent = true);
-      }
+    // Trigger smooth reveal animation
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _showContent = true);
     });
   }
 
@@ -124,9 +122,24 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openCamera() async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(builder: (_) => const CameraPage()),
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 500),
+        pageBuilder: (_, __, ___) => const CameraPage(),
+        transitionsBuilder: (_, animation, __, child) {
+          final curve = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.1),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
+        },
+      ),
     );
 
     if (result == null) return;
@@ -723,10 +736,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.pushNamed(
-                  context,
-                  '/profile',
-                  arguments: savedDishes,
+                Navigator.of(context).push(
+                  PageRouteBuilder(
+                    transitionDuration: const Duration(milliseconds: 500),
+                    pageBuilder: (_, __, ___) => ProfilePage(savedDishes: savedDishes),
+                    transitionsBuilder: (_, animation, __, child) {
+                      final curved = CurvedAnimation(parent: animation, curve: Curves.easeInOut);
+                      return FadeTransition(
+                        opacity: curved,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.05, 0),
+                            end: Offset.zero,
+                          ).animate(curved),
+                          child: child,
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -734,146 +761,170 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 12),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        children: [
-          // 🔍 Search Bar (top spacing handled by ListView padding)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase().trim();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search recipes...',
-                prefixIcon: const Icon(Icons.search, color: Colors.black87),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.black54),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding:
-                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black, width: 1),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black, width: 1),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black, width: 1.5),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 600),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.02),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: _isLoading
+            ? const Center(
+          key: ValueKey('loader'),
+          child: CircularProgressIndicator(),
+        )
+            : ListView(
+          key: const ValueKey('loadedContent'),
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          children: [
+            // 🔍 Search Bar
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value.toLowerCase().trim();
+                  });
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search recipes...',
+                  prefixIcon: const Icon(Icons.search, color: Colors.black87),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.black54),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                      vertical: 14, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide:
+                    const BorderSide(color: Colors.black, width: 1),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide:
+                    const BorderSide(color: Colors.black, width: 1),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide:
+                    const BorderSide(color: Colors.black, width: 1.5),
+                  ),
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(height: 20), // ← even spacing
+            const SizedBox(height: 20),
 
-          // 📸 Open Camera Button
-          Center(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: _openCamera,
-              splashColor: Colors.grey.withOpacity(0.2),
-              highlightColor: Colors.transparent,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.camera_alt, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      "Add a New Dish",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20), // ← even spacing
-
-          // 🧠 Filtered dish logic
-          Builder(
-            builder: (context) {
-              final filteredDishes = savedDishes.where((dish) {
-                final title =
-                (dish['title'] ?? '').toString().toLowerCase();
-                final desc =
-                (dish['description'] ?? '').toString().toLowerCase();
-                return title.contains(_searchQuery) ||
-                    desc.contains(_searchQuery);
-              }).toList();
-
-              if (filteredDishes.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.only(top: 40),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.fastfood, size: 90, color: Colors.grey),
-                      SizedBox(height: 22),
-                      Text(
-                        "No matching recipes found",
-                        style: TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.w600),
-                        textAlign: TextAlign.center,
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        "Try a different search or add a new dish.",
-                        style: TextStyle(
-                            fontSize: 14.5, color: Colors.grey),
-                        textAlign: TextAlign.center,
+            // 📸 Camera Button
+            Center(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: _openCamera,
+                splashColor: Colors.grey.withOpacity(0.2),
+                highlightColor: Colors.transparent,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.25),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                );
-              }
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.camera_alt, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        "Decipher a Dish",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: filteredDishes.length,
-                itemBuilder: (context, index) {
-                  return buildSavedDishButton(
-                      filteredDishes[index], index);
-                },
-              );
-            },
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // 🧠 Filtered Dishes
+            Builder(
+              builder: (context) {
+                final filteredDishes = savedDishes.where((dish) {
+                  final title =
+                  (dish['title'] ?? '').toString().toLowerCase();
+                  final desc =
+                  (dish['description'] ?? '').toString().toLowerCase();
+                  return title.contains(_searchQuery) ||
+                      desc.contains(_searchQuery);
+                }).toList();
+
+                if (filteredDishes.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.fastfood, size: 90, color: Colors.grey),
+                        SizedBox(height: 22),
+                        Text(
+                          "No matching recipes found",
+                          style: TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          "Try a different search or add a new dish.",
+                          style:
+                          TextStyle(fontSize: 14.5, color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filteredDishes.length,
+                  itemBuilder: (context, index) {
+                    return buildSavedDishButton(
+                        filteredDishes[index], index);
+                  },
+                );
+              },
+            ),
+          ],
+        ),
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 20, right: 10),

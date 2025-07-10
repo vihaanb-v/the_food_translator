@@ -208,19 +208,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 18),
                           TextField(
-                            controller: resetEmailController,
+                            controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(fontSize: 15.5),
+                            style: const TextStyle(
+                              fontSize: 15.5,
+                              color: Colors.black,
+                            ),
                             decoration: InputDecoration(
-                              hintText: "Enter your email",
-                              hintStyle: const TextStyle(color: Colors.black38),
+                              hintText: "Email",
+                              hintStyle: TextStyle(color: Colors.black45),
                               filled: true,
                               fillColor: Colors.grey[100],
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none,
-                              ),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(color: Colors.black87, width: 1.6),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 24),
@@ -469,16 +476,24 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        style: const TextStyle(fontSize: 15.5),
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          color: Colors.black,
+                        ),
                         decoration: InputDecoration(
                           hintText: "Email",
+                          hintStyle: const TextStyle(color: Colors.black),
                           filled: true,
                           fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black87, width: 1.6),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -489,24 +504,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: _obscurePassword,
                         style: const TextStyle(fontSize: 15.5),
                         decoration: InputDecoration(
+                          hintStyle: const TextStyle(color: Colors.black),
                           hintText: "Password",
                           filled: true,
                           fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.black54,
+                              color: Colors.black,
                             ),
                             onPressed: () {
                               setState(() {
                                 _obscurePassword = !_obscurePassword;
                               });
                             },
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black87, width: 1.6),
                           ),
                         ),
                       ),

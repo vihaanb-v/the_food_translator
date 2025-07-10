@@ -206,15 +206,15 @@ class _RegisterPageState extends State<RegisterPage> {
                               borderRadius: BorderRadius.circular(24),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.18),
-                                  blurRadius: 30,
-                                  spreadRadius: 1,
-                                  offset: const Offset(0, 14),
+                                  color: Colors.black.withOpacity(0.12), // Softer shadow
+                                  blurRadius: 24,
+                                  spreadRadius: 0,
+                                  offset: const Offset(0, 12),
                                 ),
                                 BoxShadow(
-                                  color: Colors.white.withOpacity(0.06),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, -4),
+                                  color: Colors.white.withOpacity(0.05),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, -2),
                                 ),
                               ],
                             ),
@@ -255,13 +255,18 @@ class _RegisterPageState extends State<RegisterPage> {
                         style: const TextStyle(fontSize: 15.5),
                         decoration: InputDecoration(
                           hintText: "Email",
+                          hintStyle: const TextStyle(color: Colors.black),
                           filled: true,
                           fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black87, width: 1.6),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -272,24 +277,29 @@ class _RegisterPageState extends State<RegisterPage> {
                         obscureText: _obscurePassword,
                         style: const TextStyle(fontSize: 15.5),
                         decoration: InputDecoration(
+                          hintStyle: const TextStyle(color: Colors.black),
                           hintText: "Password",
                           filled: true,
                           fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.black54,
+                              color: Colors.black,
                             ),
                             onPressed: () {
                               setState(() {
                                 _obscurePassword = !_obscurePassword;
                               });
                             },
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black87, width: 1.6),
                           ),
                         ),
                       ),
@@ -302,23 +312,28 @@ class _RegisterPageState extends State<RegisterPage> {
                         style: const TextStyle(fontSize: 15.5),
                         decoration: InputDecoration(
                           hintText: "Confirm Password",
+                          hintStyle: const TextStyle(color: Colors.black),
                           filled: true,
                           fillColor: Colors.grey[100],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                              color: Colors.black54,
+                              color: Colors.black,
                             ),
                             onPressed: () {
                               setState(() {
                                 _obscurePassword = !_obscurePassword;
                               });
                             },
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black87, width: 1.6),
                           ),
                         ),
                       ),
