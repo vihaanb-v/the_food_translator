@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart'; // ✅ Add this
 
 import 'auth_page.dart';
 import 'home_screen.dart';
@@ -9,6 +10,7 @@ import 'my_dishes_page.dart' as dishes;
 import 'favorites_page.dart' as favs;
 import 'profile_routes.dart'; // SettingsPage, PrivacyPage
 import 'splash_screen.dart';
+import 'user_profile_provider.dart'; // ✅ Import your provider
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +18,12 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => UserProfileProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

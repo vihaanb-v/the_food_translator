@@ -21,7 +21,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  String tagline = "Deciphering flavors effortlessly.";
+  String tagline = "Deciphering flavors effortlessly...";
   late List<AnimationController> charControllers;
   late List<Animation<double>> charOpacities;
 
@@ -79,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen>
 
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        smoothPush(context,  HomeScreen());
+        smoothPush(context, HomeScreen());
       } else {
         smoothPush(context, const AuthPage());
       }

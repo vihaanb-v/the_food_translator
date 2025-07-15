@@ -9,6 +9,10 @@ import 'dialogs.dart';
 import 'my_dishes_page.dart';
 import 'favorites_page.dart';
 import 'navigation_utils.dart';
+import 'package:provider/provider.dart';
+import 'user_profile_provider.dart';
+import 'auth_page.dart';
+
 
 class ProfilePage extends StatefulWidget {
   final List<Map<String, dynamic>> savedDishes;
@@ -117,6 +121,9 @@ class _ProfilePageState extends State<ProfilePage> {
       await user.reload();
       final refreshedUser = FirebaseAuth.instance.currentUser!;
       setState(() => updatedPhotoUrl = refreshedUser.photoURL);
+
+      Provider.of<UserProfileProvider>(context, listen: false)
+          .setPhotoUrl(refreshedUser.photoURL ?? '');
     }
 
     setState(() => _isUploading = false); // ✅ End loader
@@ -132,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       // 1️⃣ Get Signature from backend
       final sigResponse = await http.post(
-        Uri.parse("http://192.168.1.170:5000/cloudinary-signature"),
+        Uri.parse("http://192.168.68.65:5000/cloudinary-signature"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "folder": folder,
@@ -379,7 +386,10 @@ class _ProfilePageState extends State<ProfilePage> {
                             await FirebaseAuth.instance.signOut();
                             if (context.mounted) {
                               Navigator.of(context).pop();
-                              Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(builder: (_) => const AuthPage()),
+                                    (route) => false,
+                              );
                             }
                           }
                         },

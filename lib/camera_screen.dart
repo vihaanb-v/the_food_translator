@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -119,6 +120,24 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
     });
   }
 
+  Future<void> _pickImageFromGallery() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile != null) {
+      final File file = File(pickedFile.path);
+
+      // ✅ Set same preview state
+      setState(() {
+        _capturedImage = pickedFile;
+        _showPreview = true;
+        _aiDescription = "Analyzing food...";
+      });
+
+      await _analyzeWithGPT(file);
+    }
+  }
+
   void _takePicture() async {
     try {
       final image = await cameraController!.takePicture();
@@ -151,7 +170,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
       final response = await http
           .post(
-        Uri.parse('http://192.168.1.170:5000/analyze'),
+        Uri.parse('http://192.168.68.65:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'image': base64Image}),
       )
@@ -365,8 +384,8 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                           );
 
                           if (!mounted || result == null) return;
+                          Navigator.of(safeContext).pop(result); // result will be caught in CameraPage -> HomeScreen
 
-                          Navigator.of(safeContext).pop(result); // ✅ Use preserved context
                         },
                         child: const Text(
                           "Save",
@@ -546,24 +565,62 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
             )
                 : const Center(child: CircularProgressIndicator()),
           ),
-
-          // ✅ Close Button
           Positioned(
             top: 50,
-            right: 20,
-            child: GestureDetector(
-              onTap: _handleExitTap,
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, color: Colors.black),
+            left: 0,
+            right: 0,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Upload Button
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: GestureDetector(
+                      onTap: _pickImageFromGallery,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[900],
+                          border: Border.all(color: Colors.white24, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.photo_library_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Cancel Button
+                  SizedBox(
+                    width: 48,
+                    height: 48,
+                    child: GestureDetector(
+                      onTap: _handleExitTap,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.black, size: 24),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-
           // ✅ Zoom UI (only when camera is active)
           if (!_showPreview && cameraController != null)
             ...[

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class ChatChefModal extends StatefulWidget {
   const ChatChefModal({super.key});
@@ -23,11 +24,27 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
   List<Map<String, dynamic>> _messages = [];
   bool _isSending = false;
+  String? _profilePic;
 
   @override
   void initState() {
     super.initState();
     _loadChatHistory();
+    _loadChatHistory().then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    });
+    _fetchProfilePicture();
+  }
+
+  void _fetchProfilePicture() {
+    final user = FirebaseAuth.instance.currentUser;
+    final rawUrl = user?.photoURL;
+    if (rawUrl != null) {
+      final bustedUrl = '$rawUrl?v=${DateTime.now().millisecondsSinceEpoch}';
+      setState(() {
+        _profilePic = bustedUrl;
+      });
+    }
   }
 
   Future<void> _loadChatHistory() async {
@@ -41,12 +58,18 @@ class _ChatChefModalState extends State<ChatChefModal> {
         .orderBy('timestamp')
         .get();
 
-    final loadedMessages = snapshot.docs.map((doc) => doc.data()).toList();
+    final safeMessages = snapshot.docs.map((doc) {
+      final data = doc.data();
+      return {
+        'role': data['role'],
+        'content': data['content'],
+        // DO NOT include 'timestamp' here
+      };
+    }).toList();
 
     setState(() {
-      _messages = List<Map<String, dynamic>>.from(loadedMessages);
+      _messages = List<Map<String, dynamic>>.from(safeMessages);
     });
-
     await _scrollToBottom();
   }
 
@@ -93,7 +116,6 @@ class _ChatChefModalState extends State<ChatChefModal> {
 
     _controller.clear();
     _focusNode.unfocus();
-    await _scrollToBottom();
     await _saveMessage('user', text.trim()); // ✅ Save user message
 
     try {
@@ -137,7 +159,7 @@ class _ChatChefModalState extends State<ChatChefModal> {
   }
 
   Future<void> _scrollToBottom() async {
-    await Future.delayed(const Duration(milliseconds: 150)); // Slightly longer wait
+    await Future.delayed(const Duration(milliseconds: 250)); // Slightly longer wait
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent + 100,
@@ -186,27 +208,12 @@ class _ChatChefModalState extends State<ChatChefModal> {
         ));
       } else if (isBullet) {
         final clean = _stripMarkdown(line.replaceFirst(RegExp(r'^[-•]\s*'), ''));
-        spans.add(WidgetSpan(
-          alignment: PlaceholderAlignment.middle,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('• ',
-                    style: TextStyle(fontSize: 15, color: Colors.white)),
-                Expanded(
-                  child: Text(
-                    clean,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+        spans.add(TextSpan(
+          text: '• $clean\n',
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.5,
+            color: Colors.white,
           ),
         ));
       } else if (isNumbered) {
@@ -301,8 +308,9 @@ class _ChatChefModalState extends State<ChatChefModal> {
               padding: const EdgeInsets.only(left: 10),
               child: CircleAvatar(
                 radius: 18,
-                backgroundImage:
-                const AssetImage('assets/profile_placeholder.jpg'),
+                backgroundImage: _profilePic != null
+                    ? NetworkImage(_profilePic!)
+                    : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
               ),
             ),
         ],

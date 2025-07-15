@@ -9,7 +9,8 @@ import 'profile_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'chat_chef_modal.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'user_profile_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   HomeScreen({super.key});
@@ -47,6 +48,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    final url = FirebaseAuth.instance.currentUser?.photoURL;
+    Provider.of<UserProfileProvider>(context, listen: false).loadInitial(url);
+
     _loadSavedDishesFromFirestore();
   }
 
@@ -957,8 +962,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 tag: 'profile-pic',
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundImage: widget.user.photoURL != null
-                      ? NetworkImage(widget.user.photoURL!)
+                  backgroundImage: context.watch<UserProfileProvider>().photoUrl.isNotEmpty
+                      ? NetworkImage(context.watch<UserProfileProvider>().photoUrl)
                       : const AssetImage('assets/profile_placeholder.jpg') as ImageProvider,
                   backgroundColor: Colors.white,
                 ),

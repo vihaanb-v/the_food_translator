@@ -174,6 +174,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
         ),
       ),
     ) ??
-    false;
+        false;
   }
 }
