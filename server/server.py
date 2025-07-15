@@ -11,16 +11,23 @@ import time
 import hmac
 import hashlib
 
+load_dotenv(dotenv_path="server/secrets.env")
+
 app = Flask(__name__)
 
 # Load credentials
 load_dotenv(dotenv_path="secrets.env")
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
+openai.api_key = os.getenv("OPENAI_API_KEY")
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+# ✅ Cloudinary config
 cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-    api_key=os.getenv("CLOUDINARY_API_KEY"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
 )
 
 @app.route("/analyze", methods=["POST"])
@@ -228,41 +235,51 @@ def analyze():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/cloudinary-signature", methods=["POST"])
-def cloudinary_signature():
-    data = request.get_json()
-    public_id = data.get("public_id")
-    folder = data.get("folder")
-    timestamp = data.get("timestamp") or str(int(time.time()))
-    overwrite = str(data.get("overwrite", True)).lower()
+def generate_signature():
+    try:
+        data = request.get_json(force=True)
 
-    if not public_id or not folder:
-        return jsonify({"error": "Missing public_id or folder"}), 400
+        # Required keys from Flutter
+        required_keys = ["public_id", "folder", "timestamp", "upload_preset"]
+        missing_keys = [key for key in required_keys if key not in data]
+        if missing_keys:
+            return jsonify({
+                "error": f"Missing required keys: {', '.join(missing_keys)}"
+            }), 400
 
-    # ✅ Include 'folder' in the signature
-    params_to_sign = {
-        "folder": folder,
-        "overwrite": overwrite,
-        "public_id": public_id,
-        "timestamp": timestamp
-    }
+        # Extract in the same order Flutter sends them
+        public_id = str(data["public_id"])
+        folder = str(data["folder"])
+        timestamp = str(data["timestamp"])
+        upload_preset = str(data["upload_preset"])
 
-    to_sign = "&".join(f"{k}={v}" for k, v in sorted(params_to_sign.items()))
-    print(f"🧾 TO_SIGN: {to_sign}")
+        # Manual ordering to match Flutter and Cloudinary
+        to_sign = (
+            f"folder={folder}&"
+            f"public_id={public_id}&"
+            f"timestamp={timestamp}&"
+            f"upload_preset={upload_preset}"
+        )
 
-    signature = hmac.new(
-        os.environ["CLOUDINARY_API_SECRET"].encode("utf-8"),
-        to_sign.encode("utf-8"),
-        hashlib.sha1
-    ).hexdigest()
+        to_sign_str = to_sign + CLOUDINARY_API_SECRET
+        signature = hashlib.sha1(to_sign_str.encode("utf-8")).hexdigest()
 
-    print(f"🔐 SERVER SIGNATURE: {signature}")
+        return jsonify({
+            "api_key": CLOUDINARY_API_KEY,
+            "cloud_name": CLOUDINARY_CLOUD_NAME,
+            "folder": folder,
+            "public_id": public_id,
+            "signature": signature,
+            "timestamp": timestamp,
+            "upload_preset": upload_preset
+        })
 
-    return jsonify({
-        "signature": signature,
-        "timestamp": timestamp,
-        "api_key": os.environ["CLOUDINARY_API_KEY"],
-        "cloud_name": os.environ["CLOUDINARY_CLOUD_NAME"]
-    })
+    except Exception as e:
+        print(f"[❌ CLOUDINARY SIGNATURE ERROR] {e}")
+        return jsonify({
+            "error": "Failed to generate signature",
+            "details": str(e)
+        }), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

@@ -9,7 +9,6 @@ import 'dialogs.dart';
 import 'my_dishes_page.dart';
 import 'favorites_page.dart';
 import 'navigation_utils.dart';
-import 'cloudinary_config.dart';
 
 class ProfilePage extends StatefulWidget {
   final List<Map<String, dynamic>> savedDishes;
@@ -125,55 +124,52 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Future<String?> _uploadToCloudinary(File imageFile) async {
     final uid = user.uid;
-    final publicId = generateUserPublicId(uid); // e.g., "pfp_abc123"
-    final folder = generateUserFolder(uid);     // e.g., "users/abc123"
-    final signatureUrl = Uri.parse("http://192.168.1.170:5000/cloudinary-signature");
-
-    // ✅ STEP 1: Generate a synced timestamp (in seconds)
+    final publicId = 'pfp_$uid';
+    final folder = 'users/$uid';
+    const uploadPreset = 'flutter_user_upload';
     final timestamp = (DateTime.now().millisecondsSinceEpoch ~/ 1000).toString();
 
     try {
-      // ✅ STEP 2: Get signature using the same timestamp
+      // 1️⃣ Get Signature from backend
       final sigResponse = await http.post(
-        signatureUrl,
+        Uri.parse("http://192.168.1.170:5000/cloudinary-signature"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "public_id": publicId,
           "folder": folder,
+          "public_id": publicId,
           "timestamp": timestamp,
-          "overwrite": true,
+          "upload_preset": uploadPreset,
         }),
       );
 
       if (sigResponse.statusCode != 200) {
-        debugPrint("❌ Signature fetch failed: ${sigResponse.body}");
+        debugPrint("❌ Signature request failed: ${sigResponse.body}");
         return null;
       }
 
       final sigData = jsonDecode(sigResponse.body);
-      final uploadUrl = Uri.parse(
-        'https://api.cloudinary.com/v1_1/${sigData["cloud_name"]}/image/upload',
-      );
+      final cloudName = sigData["cloud_name"];
+      final apiKey = sigData["api_key"];
+      final signature = sigData["signature"];
+      final signedTimestamp = sigData["timestamp"];
+      final signedPublicId = sigData["public_id"];
+      final signedFolder = sigData["folder"];
+      final signedUploadPreset = sigData["upload_preset"];
 
-      // ✅ STEP 3: Upload image with exact same timestamp
-      debugPrint("📦 Upload fields:");
-      debugPrint("  api_key = ${sigData["api_key"]}");
-      debugPrint("  timestamp = $timestamp");
-      debugPrint("  signature = ${sigData["signature"]}");
-      debugPrint("  public_id = $publicId");
-      debugPrint("  folder = $folder");
-      debugPrint("  overwrite = true");
-
-      final request = http.MultipartRequest("POST", uploadUrl)
-        ..fields["api_key"] = sigData["api_key"]
-        ..fields["timestamp"] = timestamp
-        ..fields["signature"] = sigData["signature"]
-        ..fields["public_id"] = publicId
-        ..fields["folder"] = folder
-        ..fields["overwrite"] = "true"
+      // 2️⃣ Upload to Cloudinary
+      final uploadRequest = http.MultipartRequest(
+        "POST",
+        Uri.parse("https://api.cloudinary.com/v1_1/$cloudName/image/upload"),
+      )
+        ..fields["api_key"] = apiKey
+        ..fields["folder"] = signedFolder
+        ..fields["public_id"] = signedPublicId
+        ..fields["signature"] = signature
+        ..fields["timestamp"] = signedTimestamp
+        ..fields["upload_preset"] = signedUploadPreset
         ..files.add(await http.MultipartFile.fromPath("file", imageFile.path));
 
-      final uploadResponse = await request.send();
+      final uploadResponse = await uploadRequest.send();
       final responseBody = await uploadResponse.stream.bytesToString();
 
       if (uploadResponse.statusCode == 200) {
