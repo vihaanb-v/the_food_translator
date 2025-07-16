@@ -11,12 +11,9 @@ import time
 import hmac
 import hashlib
 
-load_dotenv(dotenv_path="server/secrets.env")
+load_dotenv(dotenv_path="secrets.env")
 
 app = Flask(__name__)
-
-# Load credentials
-load_dotenv(dotenv_path="secrets.env")
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -35,15 +32,18 @@ def analyze():
     try:
         data = request.get_json(force=True)
         image_b64 = data.get("image")
+        user_caption = data.get("caption", "").strip()
+
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # Decode and save image
+        # Decode image
         try:
             image_bytes = base64.b64decode(image_b64)
         except Exception:
             return jsonify({"error": "Invalid base64 image"}), 400
 
+        # Save image to temp file
         temp_filename = "temp.jpg"
         with open(temp_filename, "wb") as f:
             f.write(image_bytes)
@@ -61,47 +61,48 @@ def analyze():
         if not image_url:
             return jsonify({"error": "Image upload did not return a URL."}), 500
 
-        # --- Dish name ---
+        # -------- DISH NAME GENERATION --------
         try:
+            system_prompt = (
+                "You are a culinary expert. Return ONLY a JSON object like: "
+                "{\"title\": \"Chicken Alfredo\"}. No explanation. No markdown. Just clean JSON."
+            )
+
+            user_message = [
+                {"type": "text", "text": "What is the name of this dish? If not a food fish return the unknown JSON. Return only JSON."},
+                {"type": "image_url", "image_url": {"url": image_url}},
+            ]
+            if user_caption:
+                user_message.insert(0, {"type": "text", "text": f"User also says: {user_caption}"})
+
             name_response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a culinary expert. Return ONLY a JSON object like: "
-                            "{\"title\": \"Chicken Alfredo\"}. No intro, no explanation, just the JSON."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": "What is the name of this dish? Return only JSON."},
-                            {"type": "image_url", "image_url": {"url": image_url}}
-                        ]
-                    }
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
                 ],
                 max_tokens=100,
                 timeout=30
             )
+
             raw_json = name_response.choices[0].message.content.strip()
             print(f"Raw GPT JSON response: {raw_json}")
 
             try:
                 parsed = json.loads(raw_json)
-                dish_name = (
-                        parsed.get("title")
-                        or parsed.get("dish_name")
-                        or ""
-                ).strip()
+                dish_name = parsed.get("title") or parsed.get("dish_name") or ""
             except json.JSONDecodeError:
                 dish_name = ""
 
-            match = re.search(r"([A-Z][a-zA-Z\s\-']{2,50})", dish_name)
-            if match:
-                dish_name = match.group(0).strip()
+            dish_name = dish_name.strip()
 
-            if not dish_name or dish_name.lower() in {"dish", "food", "unknown", "none"}:
+            # Validate the dish name
+            if (
+                not dish_name
+                or not isinstance(dish_name, str)
+                or dish_name.lower() in {"dish", "food", "unknown", "none"}
+                or not re.search(r"[A-Za-z]{3,}", dish_name)
+            ):
                 dish_name = "Unknown Dish"
 
         except Exception as e:
@@ -110,22 +111,25 @@ def analyze():
 
         print(f"✅ Parsed dish name: '{dish_name}'")
 
-        # --- Dish description ---
+        # --- EARLY EXIT: Unknown Dish ---
+        if dish_name == "Unknown Dish":
+            print("⚠️ GPT could not identify dish. Returning early with trigger for Flutter popup.")
+            return jsonify({"trigger": "show_unknown_popup"}), 200  # ✅ FLUTTER WILL DETECT THIS
+
+    # -------- DESCRIPTION GENERATION --------
         try:
+            prompt = f"Describe the dish '{dish_name}' in two clean and precise yet descriptive sentences."
+            if user_caption:
+                prompt += f" User also described it as: \"{user_caption}\""
+
             desc_response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a culinary expert. Write an accurate description describing the dish you see in the image. "
-                            "Mention ingredients, flavors, and textures."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Describe the dish '{dish_name}' in two clean and precise yet descriptive sentences."
-                    }
+                    {"role": "system", "content": (
+                        "You are a culinary expert. Write an accurate description describing the dish you see in the image."
+                        "Mention ingredients, flavors, and textures."
+                    )},
+                    {"role": "user", "content": prompt}
                 ],
                 max_tokens=300,
                 timeout=30
@@ -135,37 +139,30 @@ def analyze():
             print("🔥 Error during description:", e)
             description = "No description available."
 
-        # --- Healthier Recipe (structured) ---
+        # -------- HEALTHY RECIPE --------
         try:
             healthy_response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a professional chef and nutritionist. Generate a structured JSON for a healthier version of the given dish. "
-                            "JSON format only. No markdown or explanations. Format:\n"
-                            "{"
-                            "\"title\": \"string\", "
-                            "\"ingredients\": [\"string\"], "
-                            "\"instructions\": [\"string\"], "
-                            "\"servings\": int, "
-                            "\"prepTime\": \"string\", "
-                            "\"cookTime\": \"string\", "
-                            "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
-                            "}"
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Give a healthier recipe for the '{dish_name}' that you see in the image with that exact JSON structure only."
-                    }
+                    {"role": "system", "content": (
+                        "You are a professional chef and nutritionist. Generate a structured JSON for a healthier version of the given dish. "
+                        "JSON format only. No markdown or explanations. Format:\n"
+                        "{"
+                        "\"title\": \"string\", "
+                        "\"ingredients\": [\"string\"], "
+                        "\"instructions\": [\"string\"], "
+                        "\"servings\": int, "
+                        "\"prepTime\": \"string\", "
+                        "\"cookTime\": \"string\", "
+                        "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
+                        "}"
+                    )},
+                    {"role": "user", "content": f"Give a healthier recipe for the '{dish_name}' using that JSON structure."}
                 ],
                 max_tokens=1000,
                 timeout=60
             )
-            healthy_raw = healthy_response.choices[0].message.content.strip()
-            healthy_recipe = json.loads(healthy_raw)
+            healthy_recipe = json.loads(healthy_response.choices[0].message.content.strip())
         except Exception as e:
             print("🔥 Error during healthy recipe:", e)
             healthy_recipe = {
@@ -178,37 +175,30 @@ def analyze():
                 "nutrition": {}
             }
 
-        # --- Mimic Recipe (structured) ---
+        # -------- MIMIC RECIPE --------
         try:
             mimic_response = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a professional chef. Generate a structured JSON recipe that closely mimics the original dish. "
-                            "JSON format only. No markdown or hashtags. Format:\n"
-                            "{"
-                            "\"title\": \"string\", "
-                            "\"ingredients\": [\"string\"], "
-                            "\"instructions\": [\"string\"], "
-                            "\"servings\": int, "
-                            "\"prepTime\": \"string\", "
-                            "\"cookTime\": \"string\", "
-                            "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
-                            "}"
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Create a mimic recipe for the '{dish_name}' that you see in the image using that exact JSON structure."
-                    }
+                    {"role": "system", "content": (
+                        "You are a professional chef. Generate a structured JSON recipe that closely mimics the original dish. "
+                        "JSON format only. No markdown or hashtags. Format:\n"
+                        "{"
+                        "\"title\": \"string\", "
+                        "\"ingredients\": [\"string\"], "
+                        "\"instructions\": [\"string\"], "
+                        "\"servings\": int, "
+                        "\"prepTime\": \"string\", "
+                        "\"cookTime\": \"string\", "
+                        "\"nutrition\": {\"calories\": int, \"protein\": \"string\", \"carbs\": \"string\", \"fat\": \"string\"}"
+                        "}"
+                    )},
+                    {"role": "user", "content": f"Create a mimic recipe for the '{dish_name}' using that JSON structure."}
                 ],
                 max_tokens=1000,
                 timeout=60
             )
-            mimic_raw = mimic_response.choices[0].message.content.strip()
-            mimic_recipe = json.loads(mimic_raw)
+            mimic_recipe = json.loads(mimic_response.choices[0].message.content.strip())
         except Exception as e:
             print("🔥 Error during mimic recipe:", e)
             mimic_recipe = {
@@ -221,7 +211,7 @@ def analyze():
                 "nutrition": {}
             }
 
-        # ✅ Final response
+        # ✅ Final JSON return
         return jsonify({
             "title": dish_name,
             "description": description,

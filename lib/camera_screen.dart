@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:ui';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -26,6 +27,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   Map<String, dynamic> _lastAnalyzedHealthy = {};
   Map<String, dynamic> _lastAnalyzedMimic = {};
   String _lastImageUrl = '';
+  String _userCaption = '';
 
   double _currentZoom = 1.0;
   final double _minZoom = 1.0;
@@ -134,7 +136,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
         _aiDescription = "Analyzing food...";
       });
 
-      await _analyzeWithGPT(file);
+      await _promptUserCaption(file);
     }
   }
 
@@ -157,9 +159,281 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
         _aiDescription = "Analyzing food...";
       });
 
-      await _analyzeWithGPT(file);
+      await _promptUserCaption(file);
     } catch (e) {
       debugPrint('Error taking picture: $e');
+    }
+  }
+
+  Future<void> _promptUserCaption(File imageFile) async {
+    _userCaption = ''; // Reset
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: "Caption Input",
+      barrierColor: Colors.black.withOpacity(0.5),
+      transitionDuration: const Duration(milliseconds: 500),
+      pageBuilder: (_, __, ___) {
+        return Align(
+          alignment: Alignment.center,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.white30, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  child: StatefulBuilder(
+                    builder: (context, setState) {
+                      return IntrinsicHeight(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "Add your flavor note",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                                letterSpacing: 0.8,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              maxLength: 100,
+                              autofocus: true,
+                              style: const TextStyle(color: Colors.white),
+                              cursorColor: Colors.white,
+                              textInputAction: TextInputAction.done, // Don't submit on done
+                              onChanged: (value) => setState(() => _userCaption = value),
+                              decoration: InputDecoration(
+                                hintText: "e.g. Zesty crunch with smoky undertones",
+                                hintStyle: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white70,
+                                ),
+                                counterStyle: const TextStyle(color: Colors.white38),
+                                filled: true,
+                                fillColor: Colors.white.withOpacity(0.05),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Colors.white30),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Colors.white),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text(
+                                    "Skip",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: _userCaption.trim().isNotEmpty
+                                      ? () => Navigator.of(context).pop()
+                                      : null,
+                                  child: const Text(
+                                    "Submit",
+                                    style: TextStyle(fontSize: 16),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        return FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+
+    await _analyzeWithGPT(imageFile); // Trigger backend
+  }
+
+  void _showUnknownDishPopup(BuildContext context) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "Unknown Dish",
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (_, __, ___) {
+        return Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white30, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.amber),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "Dish Not Recognized",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        "We couldn't confidently identify this dish. Try using a clearer, closer, or more focused photo.",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          backgroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _resetAfterUnknownDish();
+                        },
+                        child: const Text(
+                          "Okay, Got It",
+                          style: TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (_, anim, __, child) {
+        return FadeTransition(
+          opacity: anim,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.95, end: 1.0).animate(
+              CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+            ),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  void _resetAfterUnknownDish() async {
+    // Delete the old image if it exists
+    if (_capturedImage != null) {
+      final file = File(_capturedImage!.path);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+          debugPrint("🗑️ Deleted unrecognized image: ${file.path}");
+        } catch (e) {
+          debugPrint("⚠️ Failed to delete image: $e");
+        }
+      }
+    }
+
+    setState(() {
+      _capturedImage = null;
+      _showPreview = false;
+      _aiDescription = "";
+      _lastImageUrl = '';
+      _lastAnalyzedTitle = '';
+      _lastAnalyzedDescription = '';
+      _lastAnalyzedHealthy = {};
+      _lastAnalyzedMimic = {};
+    });
+
+    try {
+      if (cameraController != null && !cameraController!.value.isInitialized) {
+        await cameraController!.initialize(); // ✅ This will start the preview
+        debugPrint("🔁 Reinitialized camera after unknown dish.");
+      }
+    } catch (e) {
+      debugPrint("❌ Error reinitializing camera: $e");
     }
   }
 
@@ -172,13 +446,36 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
           .post(
         Uri.parse('http://192.168.68.65:5000/analyze'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'image': base64Image}),
+        body: jsonEncode({
+          'image': base64Image,
+          'caption': _userCaption.trim(),
+        }),
       )
           .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final Map<String, dynamic> data = jsonDecode(response.body);
 
+        // 🔁 EARLY EXIT: Unknown dish trigger
+        if (data['trigger'] == 'show_unknown_popup') {
+          debugPrint("⚠️ Backend says unknown dish. Aborting analysis.");
+
+          // ❌ Reset state to default as if camera just opened
+          setState(() {
+            _aiDescription = "";
+            _lastImageUrl = '';
+            _lastAnalyzedTitle = '';
+            _lastAnalyzedDescription = '';
+            _lastAnalyzedHealthy = {};
+            _lastAnalyzedMimic = {};
+          });
+
+          // 🧼 Show popup and stay on camera
+          _showUnknownDishPopup(context);
+          return; // ⛔ Stop further processing
+        }
+
+        // ✅ Proceed normally if dish is recognized
         final rawTitle = (data['title'] as String?)?.trim();
         final description = (data['description'] as String?)?.trim() ?? "No description available.";
         final healthyRecipe = data['healthyRecipe'] ?? {};
@@ -195,6 +492,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
           _lastAnalyzedDescription = description;
           _lastAnalyzedHealthy = healthyRecipe;
           _lastAnalyzedMimic = mimicRecipe;
+          _aiDescription = "";
         });
 
         _showFoodPopup(title, description, healthyRecipe, mimicRecipe);
