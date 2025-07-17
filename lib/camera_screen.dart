@@ -924,45 +924,65 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Upload Button
-                  SizedBox(
+                  Container(
                     width: 48,
                     height: 48,
-                    child: GestureDetector(
-                      onTap: _pickImageFromGallery,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[900],
-                          border: Border.all(color: Colors.white24, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.3),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey[900],
+                      border: Border.all(color: Colors.white24, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                        child: const Icon(
-                          Icons.photo_library_rounded,
-                          color: Colors.white,
-                          size: 24,
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _pickImageFromGallery,
+                        child: const Center(
+                          child: Icon(
+                            Icons.photo_library_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                   ),
 
-                  // Cancel Button
-                  SizedBox(
+                  // Cancel Button — perfectly matched
+                  Container(
                     width: 48,
                     height: 48,
-                    child: GestureDetector(
-                      onTap: _handleExitTap,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(color: Colors.white24, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
-                        child: const Icon(Icons.close, color: Colors.black, size: 24),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: _handleExitTap,
+                        child: const Center(
+                          child: Icon(
+                            Icons.close,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                        ),
                       ),
                     ),
                   ),
