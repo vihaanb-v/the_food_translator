@@ -166,7 +166,9 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
   }
 
   Future<void> _promptUserCaption(File imageFile) async {
-    _userCaption = ''; // Reset
+    _userCaption = '';
+    final TextEditingController _controller = TextEditingController();
+    final FocusNode _focusNode = FocusNode();
 
     await showGeneralDialog(
       context: context,
@@ -175,117 +177,137 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       barrierColor: Colors.black.withOpacity(0.5),
       transitionDuration: const Duration(milliseconds: 500),
       pageBuilder: (_, __, ___) {
-        return Align(
-          alignment: Alignment.center,
+        return Center( // ✅ Always centered
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white30, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+                return AnimatedPadding(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: bottomInset > 0 ? bottomInset : 0, // ✅ Push up only when keyboard opens
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                  child: StatefulBuilder(
-                    builder: (context, setState) {
-                      return IntrinsicHeight(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              "Add your flavor note",
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                                letterSpacing: 0.8,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 16),
-                            TextField(
-                              maxLength: 100,
-                              autofocus: true,
-                              style: const TextStyle(color: Colors.white),
-                              cursorColor: Colors.white,
-                              textInputAction: TextInputAction.done, // Don't submit on done
-                              onChanged: (value) => setState(() => _userCaption = value),
-                              decoration: InputDecoration(
-                                hintText: "e.g. Zesty crunch with smoky undertones",
-                                hintStyle: const TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.white70,
-                                ),
-                                counterStyle: const TextStyle(color: Colors.white38),
-                                filled: true,
-                                fillColor: Colors.white.withOpacity(0.05),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(color: Colors.white30),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderSide: const BorderSide(color: Colors.white),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: const Text(
-                                    "Skip",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.white70,
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  onPressed: _userCaption.trim().isNotEmpty
-                                      ? () => Navigator.of(context).pop()
-                                      : null,
-                                  child: const Text(
-                                    "Submit",
-                                    style: TextStyle(fontSize: 16),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white30, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
-                      );
-                    },
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                        child: IntrinsicHeight(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                "Add your flavor note",
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.8,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              TextField(
+                                controller: _controller,
+                                focusNode: _focusNode,
+                                maxLength: 100,
+                                autofocus: false,
+                                style: const TextStyle(color: Colors.white),
+                                cursorColor: Colors.white,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: (_) {}, // do not submit on done
+                                onChanged: (value) {
+                                  setState(() => _userCaption = value);
+                                },
+                                decoration: InputDecoration(
+                                  hintText: "Describe the dish...",
+                                  hintStyle: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white70,
+                                  ),
+                                  counterStyle: const TextStyle(color: Colors.white38),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.05),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Colors.white30),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Colors.white),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text(
+                                      "Skip",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _userCaption.trim().isNotEmpty
+                                          ? Colors.black
+                                          : Colors.black.withOpacity(0.3),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
+                                      elevation: _userCaption.trim().isNotEmpty ? 6 : 0,
+                                      shadowColor: Colors.black54,
+                                    ),
+                                    onPressed: _userCaption.trim().isNotEmpty
+                                        ? () => Navigator.of(context).pop()
+                                        : null,
+                                    child: const Text(
+                                      "Submit",
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         );
@@ -303,7 +325,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       },
     );
 
-    await _analyzeWithGPT(imageFile); // Trigger backend
+    await _analyzeWithGPT(imageFile);
   }
 
   void _showUnknownDishPopup(BuildContext context) {
@@ -514,7 +536,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Discard Image',
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.5),
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) {
         return Center(
@@ -522,48 +544,77 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
             color: Colors.transparent,
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
               ),
               child: IntrinsicHeight(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const Icon(Icons.warning_amber_rounded, size: 36, color: Colors.redAccent),
+                    const SizedBox(height: 12),
                     const Text(
                       "Discard this image?",
                       style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     const Text(
                       "Your current image will be lost if you exit.",
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 14, color: Colors.black87),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(), // Close dialog
-                          child: const Text(
-                            "Cancel",
-                            style: TextStyle(fontSize: 16, color: Colors.black),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[200],
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(color: Colors.black87, fontSize: 15),
+                            ),
                           ),
                         ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // Close dialog
-                            _retakePicture(); // ✅ Fully reset preview + analysis
-                          },
-                          child: const Text(
-                            "Discard",
-                            style: TextStyle(fontSize: 16, color: Colors.red),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _retakePicture();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.redAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            child: const Text(
+                              "Discard",
+                              style: TextStyle(color: Colors.white, fontSize: 15),
+                            ),
                           ),
                         ),
                       ],
@@ -580,7 +631,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
           opacity: animation,
           child: ScaleTransition(
             scale: Tween<double>(begin: 0.95, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+              CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
             ),
             child: child,
           ),
