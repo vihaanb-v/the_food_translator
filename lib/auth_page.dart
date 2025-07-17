@@ -10,22 +10,22 @@ class AuthPage extends StatelessWidget{
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          // User has logged in
-          if (snapshot.hasData) {
-            // Trigger routing instead of returning directly
-            Future.microtask(() {
-              Navigator.pushReplacementNamed(context, '/home');
-            });
-            return const SizedBox(); // temporary placeholder
-          } else {
-            // User has not logged in
-            return LoginOrRegisterPage();
-          }
-        }
-      )
+        body: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              // User has logged in
+              if (snapshot.hasData) {
+                // Trigger routing instead of returning directly
+                Future.microtask(() {
+                  Navigator.pushReplacementNamed(context, '/home');
+                });
+                return const SizedBox(); // temporary placeholder
+              } else {
+                // User has not logged in
+                return LoginOrRegisterPage();
+              }
+            }
+        )
     );
   }
 }

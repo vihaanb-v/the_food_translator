@@ -74,8 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
       if (imageUrl == null || imageUrl.isEmpty) continue;
 
       try {
-        final response =
-        await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
+        // ✅ Parse and store healthy/mimic checked lists
+        final healthyChecked = List<String>.from(data['healthyCheckedItems'] ?? []);
+        final mimicChecked = List<String>.from(data['mimicCheckedItems'] ?? []);
+        checkedIngredientsMap['${doc.id}-healthy'] = healthyChecked.toSet();
+        checkedIngredientsMap['${doc.id}-mimic'] = mimicChecked.toSet();
+
+        // 🖼️ Download image and save to temp file
+        final response = await HttpClient().getUrl(Uri.parse('$imageUrl?f_auto,q_auto'));
         final imageData = await response.close();
         final bytes = await consolidateHttpClientResponseBytes(imageData);
         final file = await File('${Directory.systemTemp.path}/${doc.id}.jpg')
@@ -90,20 +96,19 @@ class _HomeScreenState extends State<HomeScreen> {
           'imagePath': file.path,
           'isFavorite': data['isFavorite'] ?? false,
         });
+
       } catch (e) {
-        debugPrint("❌ Failed to load image from $imageUrl: $e");
-        // Continue even if one image fails
+        debugPrint("❌ Failed to load data for dish ${doc.id}: $e");
       }
     }
 
-    // Always end loading state even if image download failed
+    // 🧠 Finish loading
     if (!mounted) return;
     setState(() {
       savedDishes = loadedDishes;
       _isLoading = false;
     });
 
-    // Trigger smooth reveal animation
     Future.delayed(const Duration(milliseconds: 150), () {
       if (mounted) setState(() => _showContent = true);
     });
@@ -128,22 +133,33 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _updateShoppingList(String dishId) async {
+  Future<void> updateShoppingList(String dishId, Set<String> ingredients, {required String type}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final checked = checkedIngredientsMap[dishId]?.toList() ?? [];
+    final key = type == 'mimic' ? 'mimicCheckedItems' : 'healthyCheckedItems';
 
     await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
-        .collection('shoppingList')
+        .collection('savedDishes')
         .doc(dishId)
-        .set({'items': checked});
+        .update({key: ingredients.toList()});
+
+    // Update local map too
+    checkedIngredientsMap['$dishId-$type'] = ingredients;
   }
 
-  void _showIngredientsPopup(BuildContext context, String dishId, List<String> ingredients) {
-    final checked = Set<String>.from(checkedIngredientsMap[dishId] ?? {});
+  void _showIngredientsPopup(
+      BuildContext context,
+      String dishId,
+      List<String> healthyIngredients,
+      List<String> mimicIngredients,
+      ) {
+    String currentTab = 'healthy';
+
+    Set<String> checkedHealthy = checkedIngredientsMap['$dishId-healthy'] ?? <String>{};
+    Set<String> checkedMimic = checkedIngredientsMap['$dishId-mimic'] ?? <String>{};
 
     showDialog(
       context: context,
@@ -158,38 +174,50 @@ class _HomeScreenState extends State<HomeScreen> {
               filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
               child: StatefulBuilder(
                 builder: (context, setState) {
+                  final ingredients = currentTab == 'healthy' ? healthyIngredients : mimicIngredients;
+                  final checked = currentTab == 'healthy' ? checkedHealthy : checkedMimic;
+
                   return Container(
                     padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.07),
                       borderRadius: BorderRadius.circular(28),
                       border: Border.all(
-                        color: Colors.black.withOpacity(0.4), // 🔥 Slight black border
+                        color: Colors.black.withOpacity(0.4),
                         width: 1.2,
                       ),
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 🛒 Header centered
+                        // 🧠 Toggle Buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.shopping_cart_outlined, size: 24, color: Colors.white),
-                            SizedBox(width: 10),
-                            Text(
-                              'Shopping List',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                          children: [
+                            ToggleButtons(
+                              isSelected: [currentTab == 'healthy', currentTab == 'mimic'],
+                              onPressed: (index) {
+                                setState(() {
+                                  currentTab = index == 0 ? 'healthy' : 'mimic';
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white.withOpacity(0.8),
+                              selectedColor: Colors.black,
+                              fillColor: Colors.white,
+                              textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                              constraints: const BoxConstraints(minHeight: 40, minWidth: 100),
+                              children: const [
+                                Text("Healthy"),
+                                Text("Mimic"),
+                              ],
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 20),
 
-                        // ✅ Scrollable ingredient list
+                        // ✅ Scrollable list
                         Flexible(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 300),
@@ -209,16 +237,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   value: isChecked,
-                                  activeColor: Colors.black, // BLACK checkbox
-                                  checkColor: Colors.white, // white checkmark
-                                  onChanged: (value) {
+                                  activeColor: Colors.black,
+                                  checkColor: Colors.white,
+                                  onChanged: (val) {
                                     setState(() {
-                                      if (value == true) {
+                                      if (val == true) {
                                         checked.add(ingredient);
                                       } else {
                                         checked.remove(ingredient);
                                       }
-                                      checkedIngredientsMap[dishId] = checked;
+
+                                      if (currentTab == 'healthy') {
+                                        checkedHealthy = checked;
+                                        checkedIngredientsMap['$dishId-healthy'] = checkedHealthy;
+                                      } else {
+                                        checkedMimic = checked;
+                                        checkedIngredientsMap['$dishId-mimic'] = checkedMimic;
+                                      }
                                     });
                                   },
                                   controlAffinity: ListTileControlAffinity.leading,
@@ -230,7 +265,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                         const SizedBox(height: 24),
 
-                        // 🧊 Add All / Save / Clear All
+                        // 🧊 Bottom Buttons
                         Row(
                           children: [
                             Expanded(
@@ -238,7 +273,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: () {
                                   setState(() {
                                     checked.addAll(ingredients);
-                                    checkedIngredientsMap[dishId] = checked;
+                                    if (currentTab == 'healthy') {
+                                      checkedIngredientsMap['$dishId-healthy'] = checked;
+                                    } else {
+                                      checkedIngredientsMap['$dishId-mimic'] = checked;
+                                    }
                                   });
                                 },
                                 style: OutlinedButton.styleFrom(
@@ -256,7 +295,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () async {
-                                  await _updateShoppingList(dishId);
+                                  await updateShoppingList(
+                                    dishId,
+                                    checkedHealthy,
+                                    type: 'healthy',
+                                  );
+                                  await updateShoppingList(
+                                    dishId,
+                                    checkedMimic,
+                                    type: 'mimic',
+                                  );
                                   Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -277,7 +325,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: () {
                                   setState(() {
                                     checked.clear();
-                                    checkedIngredientsMap[dishId] = checked;
+                                    if (currentTab == 'healthy') {
+                                      checkedHealthy = checked;
+                                      checkedIngredientsMap['$dishId-healthy'] = checkedHealthy;
+                                    } else {
+                                      checkedMimic = checked;
+                                      checkedIngredientsMap['$dishId-mimic'] = checkedMimic;
+                                    }
                                   });
                                 },
                                 style: OutlinedButton.styleFrom(
@@ -831,23 +885,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                         ),
                                       ),
-                                      if ((checkedIngredientsMap[dish['id']]?.isNotEmpty ?? false))
-                                        Container(
-                                          margin: const EdgeInsets.only(left: 6),
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: const Text(
-                                            "✓ List",
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                   const SizedBox(height: 6),
@@ -872,9 +909,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Right side: shopping cart
                             GestureDetector(
                               onTap: () {
-                                final ingredients = (dish['healthyRecipe']?['ingredients'] ?? []).cast<String>();
+                                final healthyIngredients = (dish['healthyRecipe']?['ingredients'] ?? []).cast<String>();
+                                final mimicIngredients = (dish['mimicRecipe']?['ingredients'] ?? []).cast<String>();
                                 final dishId = dish['id'] ?? dish['title'] ?? 'unknown';
-                                _showIngredientsPopup(context, dishId, ingredients);
+                                _showIngredientsPopup(context, dishId, healthyIngredients, mimicIngredients);
                               },
                               child: Container(
                                 padding: const EdgeInsets.all(8),

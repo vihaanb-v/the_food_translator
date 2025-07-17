@@ -60,16 +60,16 @@ class GlassDishCard extends StatelessWidget {
                         ),
                       ),
                       TabBar(
-                        isScrollable: false, // ← enable scroll to control spacing manually
+                        isScrollable: false,
                         padding: EdgeInsets.zero,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 2), // tighter spacing
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 2),
                         indicatorPadding: EdgeInsets.zero,
                         indicatorSize: TabBarIndicatorSize.label,
                         labelColor: Colors.black,
                         unselectedLabelColor: Colors.grey,
                         overlayColor: WidgetStateProperty.all(Colors.transparent),
                         labelStyle: const TextStyle(
-                          fontSize: 13.5, // slightly smaller
+                          fontSize: 13.5,
                           fontWeight: FontWeight.w600,
                         ),
                         tabs: const [
@@ -145,7 +145,6 @@ class GlassDishCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 📸 Image
                   Stack(
                     children: [
                       if (hasImage)
@@ -176,7 +175,6 @@ class GlassDishCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // ❤️ Favorite button only (no delete)
                       if (onFavoriteToggle != null)
                         Positioned(
                           top: 12,
@@ -246,9 +244,58 @@ class GlassDishCard extends StatelessWidget {
 
 class _PopupContent extends StatelessWidget {
   final String? imagePath;
-  final String? text;
+  final dynamic content;
 
-  const _PopupContent(this.imagePath, this.text);
+  const _PopupContent(this.imagePath, this.content);
+
+  Widget _buildContent(dynamic content) {
+    if (content is String) {
+      return Text(
+        content,
+        style: const TextStyle(fontSize: 16),
+      );
+    } else if (content is Map<String, dynamic>) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (content['title'] != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                content['title'],
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+          if (content['ingredients'] != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                "Ingredients:\n${(content['ingredients'] as List).join(', ')}",
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+          if (content['instructions'] != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Text(
+                "Instructions:\n${content['instructions']}",
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+          if (content['nutrition'] != null)
+            Text(
+              "Nutrition:\n${content['nutrition']}",
+              style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic),
+            ),
+        ],
+      );
+    } else {
+      return const Text(
+        'No content available',
+        style: TextStyle(fontSize: 16),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -266,10 +313,7 @@ class _PopupContent extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Scrollbar(
               child: SingleChildScrollView(
-                child: Text(
-                  text ?? 'No content available',
-                  style: const TextStyle(fontSize: 16),
-                ),
+                child: _buildContent(content),
               ),
             ),
           ),
