@@ -8,7 +8,7 @@ import 'firebase_options.dart';
 import 'profile_page.dart';
 import 'my_dishes_page.dart' as dishes;
 import 'favorites_page.dart' as favs;
-import 'profile_routes.dart'; // SettingsPage, PrivacyPage
+import 'settings.dart'; // SettingsPage, PrivacyPage
 import 'splash_screen.dart';
 import 'user_profile_provider.dart'; // ✅ Import your provider
 
@@ -66,9 +66,6 @@ class MyApp extends StatelessWidget {
 
           case '/settings':
             return MaterialPageRoute(builder: (_) => const SettingsPage());
-
-          case '/privacy':
-            return MaterialPageRoute(builder: (_) => const PrivacyPage());
 
           default:
             return null;

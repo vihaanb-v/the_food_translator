@@ -139,7 +139,7 @@ class _ProfilePageState extends State<ProfilePage> {
     try {
       // 1️⃣ Get Signature from backend
       final sigResponse = await http.post(
-        Uri.parse("http://192.168.68.65:5000/cloudinary-signature"),
+        Uri.parse("http://192.168.68.61:5000/cloudinary-signature"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "folder": folder,
@@ -289,26 +289,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: ListView(
                     children: [
+                      const SizedBox(height: 4),
                       GlassTile(
                         icon: Icons.history,
                         title: "My Dishes",
                         onTap: () => smoothPush(context, MyDishesPage(savedDishes: widget.savedDishes)),
                       ),
+                      const SizedBox(height: 10),
                       GlassTile(
                         icon: Icons.favorite,
                         title: "Favorites",
                         onTap: () => smoothPush(context, FavoritesPage(savedDishes: widget.savedDishes)),
                       ),
+                      const SizedBox(height: 10),
                       GlassTile(
                         icon: Icons.settings,
                         title: "Settings",
                         onTap: () => Navigator.pushNamed(context, '/settings'),
                       ),
-                      GlassTile(
-                        icon: Icons.security,
-                        title: "Privacy",
-                        onTap: () => Navigator.pushNamed(context, '/privacy'),
-                      ),
+                      const SizedBox(height: 10),
                       GlassTile(
                         icon: Icons.logout,
                         title: "Log Out",
@@ -349,12 +348,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                             style: OutlinedButton.styleFrom(
                                               foregroundColor: Colors.black87,
                                               side: const BorderSide(color: Colors.black12),
-                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
                                               ),
                                             ),
-                                            child: const Text("Cancel"),
+                                            child: const Text("Cancel", style: TextStyle(fontSize: 15)),
                                           ),
                                         ),
                                         const SizedBox(width: 12),
@@ -365,12 +364,12 @@ class _ProfilePageState extends State<ProfilePage> {
                                               backgroundColor: Colors.redAccent,
                                               foregroundColor: Colors.white,
                                               elevation: 0,
-                                              padding: const EdgeInsets.symmetric(vertical: 14),
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius: BorderRadius.circular(12),
                                               ),
                                             ),
-                                            child: const Text("Log Out"),
+                                            child: const Text("Log Out", style: TextStyle(fontSize: 15)),
                                           ),
                                         ),
                                       ],
@@ -394,23 +393,25 @@ class _ProfilePageState extends State<ProfilePage> {
                           }
                         },
                       ),
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                padding: const EdgeInsets.fromLTRB(36, 0, 36, 24),
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text("Back to Home"),
+                  icon: const Icon(Icons.arrow_back, size: 18),
+                  label: const Text("Back to Home", style: TextStyle(fontSize: 15)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(50),
+                    minimumSize: const Size.fromHeight(44),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    elevation: 0,
                   ),
                 ),
               ),
