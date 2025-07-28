@@ -344,7 +344,6 @@ class _ChatChefModalState extends State<ChatChefModal> {
           ),
           Column(
             children: [
-              // ✅ SafeArea fixes top cutoff
               SafeArea(
                 bottom: false,
                 child: Padding(
@@ -353,7 +352,115 @@ class _ChatChefModalState extends State<ChatChefModal> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const SizedBox(width: 36), // balances close button visually
+                      // 🗑️ DELETE BUTTON
+                      GestureDetector(
+                        onTap: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            barrierDismissible: true,
+                            builder: (context) => Dialog(
+                              backgroundColor: Colors.transparent,
+                              insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(20),
+                                child: BackdropFilter(
+                                  filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
+                                  child: Container(
+                                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.07),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: Colors.black.withOpacity(0.2)),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.warning_amber_rounded,
+                                            color: Colors.redAccent, size: 40),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'Clear Chat History?',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'This will permanently delete your chat history with the Chef.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: Colors.white70,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                          children: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context, false),
+                                              child: const Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.redAccent,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(
+                                                    horizontal: 20, vertical: 10),
+                                                shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12)),
+                                              ),
+                                              onPressed: () => Navigator.pop(context, true),
+                                              child: const Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+
+                          if (confirmed == true) {
+                            await _clearChatHistory();
+                            setState(() {
+                              _messages.clear();
+                            });
+                          }
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      // 🧑‍🍳 TITLE
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -375,6 +482,8 @@ class _ChatChefModalState extends State<ChatChefModal> {
                           ),
                         ],
                       ),
+
+                      // ❌ CLOSE BUTTON
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
