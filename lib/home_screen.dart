@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-
 import 'camera_screen.dart';
 import 'profile_page.dart';
 import 'chat_chef_modal.dart';
@@ -291,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: Padding(
         padding: EdgeInsets.only(
           bottom: max(MediaQuery.of(context).viewPadding.bottom - 30, 4),
-          right: 10,
+          left: 10,
         ),
         child: FloatingActionButton(
           backgroundColor: Colors.black,
@@ -299,6 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white),
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }
