@@ -105,60 +105,57 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Opacity(
             opacity: anim1.value,
             child: Dialog(
-              backgroundColor: Colors.white.withOpacity(0.92),
+              backgroundColor: Colors.white.withOpacity(0.95),
               elevation: 12,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               insetPadding: const EdgeInsets.symmetric(horizontal: 30),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_rounded, color: Colors.redAccent, size: 48),
-                      const SizedBox(height: 18),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 17.5,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_rounded, color: Colors.redAccent, size: 48),
+                    const SizedBox(height: 18),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
                       ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop();
-                            if (reopenReset) {
-                              Future.delayed(const Duration(milliseconds: 100), _resetPassword);
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          if (reopenReset) {
+                            Future.delayed(const Duration(milliseconds: 100), _resetPassword);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
-                            "OK",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.3,
-                            ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          "OK",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -183,129 +180,126 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Opacity(
             opacity: anim1.value,
             child: Dialog(
-              backgroundColor: Colors.white.withOpacity(0.94),
+              backgroundColor: Colors.white.withOpacity(0.95),
               elevation: 12,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               insetPadding: const EdgeInsets.symmetric(horizontal: 30),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                  child: StatefulBuilder(
-                    builder: (context, setState) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            "Reset Password",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          "Reset Password",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            color: Colors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: "Email",
+                            hintStyle: TextStyle(color: Colors.black45),
+                            filled: true,
+                            fillColor: Colors.grey[100],
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.black26, width: 1.3),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: Colors.black87, width: 1.6),
                             ),
                           ),
-                          const SizedBox(height: 18),
-                          TextField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            style: const TextStyle(
-                              fontSize: 15.5,
-                              color: Colors.black,
-                            ),
-                            decoration: InputDecoration(
-                              hintText: "Email",
-                              hintStyle: TextStyle(color: Colors.black45),
-                              filled: true,
-                              fillColor: Colors.grey[100],
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              enabledBorder: OutlineInputBorder(
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final email = resetEmailController.text.trim();
+                              Navigator.of(context).pop();
+
+                              if (email.isEmpty) {
+                                _showErrorDialog("Enter your email.", reopenReset: true);
+                                return;
+                              }
+
+                              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                              if (!emailRegex.hasMatch(email)) {
+                                _showErrorDialog("Invalid email format.", reopenReset: true);
+                                return;
+                              }
+
+                              // Show loading
+                              late BuildContext loadingContext;
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (ctx) {
+                                  loadingContext = ctx;
+                                  return const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.black,
+                                      strokeWidth: 3,
+                                    ),
+                                  );
+                                },
+                              );
+
+                              try {
+                                await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                                Navigator.of(loadingContext).pop();
+                                _showSuccessDialog("Reset link sent. Check your inbox.");
+                              } on FirebaseAuthException catch (e) {
+                                Navigator.of(loadingContext).pop();
+                                if (e.code == 'user-not-found') {
+                                  _showErrorDialog("No account found with that email.", reopenReset: true);
+                                } else if (e.code == 'invalid-email') {
+                                  _showErrorDialog("Invalid email address.", reopenReset: true);
+                                } else {
+                                  _showErrorDialog("Something went wrong: ${e.message}", reopenReset: true);
+                                }
+                              } catch (e) {
+                                Navigator.of(loadingContext).pop();
+                                _showErrorDialog("Unexpected error: $e", reopenReset: true);
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.black26, width: 1.3),
                               ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(color: Colors.black87, width: 1.6),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              "Send Reset Link",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.2,
+                                fontSize: 15.5,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final email = resetEmailController.text.trim();
-                                Navigator.of(context).pop();
-
-                                if (email.isEmpty) {
-                                  _showErrorDialog("Enter your email.", reopenReset: true);
-                                  return;
-                                }
-
-                                final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                                if (!emailRegex.hasMatch(email)) {
-                                  _showErrorDialog("Invalid email format.", reopenReset: true);
-                                  return;
-                                }
-
-                                // Show loading
-                                late BuildContext loadingContext;
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (ctx) {
-                                    loadingContext = ctx;
-                                    return const Center(
-                                      child: CircularProgressIndicator(
-                                        color: Colors.black,
-                                        strokeWidth: 3,
-                                      ),
-                                    );
-                                  },
-                                );
-
-                                try {
-                                  await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-                                  Navigator.of(loadingContext).pop();
-                                  _showSuccessDialog("Reset link sent. Check your inbox.");
-                                } on FirebaseAuthException catch (e) {
-                                  Navigator.of(loadingContext).pop();
-                                  if (e.code == 'user-not-found') {
-                                    _showErrorDialog("No account found with that email.", reopenReset: true);
-                                  } else if (e.code == 'invalid-email') {
-                                    _showErrorDialog("Invalid email address.", reopenReset: true);
-                                  } else {
-                                    _showErrorDialog("Something went wrong: ${e.message}", reopenReset: true);
-                                  }
-                                } catch (e) {
-                                  Navigator.of(loadingContext).pop();
-                                  _showErrorDialog("Unexpected error: $e", reopenReset: true);
-                                }
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                "Send Reset Link",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.2,
-                                  fontSize: 15.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -328,59 +322,56 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Opacity(
             opacity: anim1.value,
             child: Dialog(
-              backgroundColor: Colors.white.withOpacity(0.94),
+              backgroundColor: Colors.white.withOpacity(0.95),
               elevation: 10,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               insetPadding: const EdgeInsets.symmetric(horizontal: 30),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_rounded,
-                        color: Colors.green,
-                        size: 48,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.green,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
                       ),
-                      const SizedBox(height: 18),
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
-                            "OK",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.3,
-                            ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          "OK",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
