@@ -503,6 +503,11 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
         final healthyRecipe = data['healthyRecipe'] ?? {};
         final mimicRecipe = data['mimicRecipe'] ?? {};
         final imageUrl = (data['imageUrl'] as String?)?.trim() ?? "";
+        if (imageUrl.isEmpty) {
+          debugPrint("❌ No image URL returned. Aborting...");
+          setState(() => _aiDescription = "Failed to get image URL.");
+          return;
+        }
 
         final title = (rawTitle != null && rawTitle.toLowerCase() != "dish" && rawTitle.isNotEmpty)
             ? rawTitle
@@ -715,32 +720,25 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
                       ),
                       TextButton(
                         onPressed: () async {
-                          final safeContext = context; // ✅ Save safe reference
-
-                          Navigator.of(safeContext).pop(); // Close popup
-
-                          if (_capturedImage == null) {
-                            print("❗ Tried to save but _capturedImage is null");
-                            return;
-                          }
+                          final navigator = Navigator.of(context); // ✅ Capture early
+                          navigator.pop(); // Close the popup
 
                           final result = await _confirmPictureWithDish(
                             title,
                             description,
                             healthyRecipe,
                             mimicRecipe,
-                            _capturedImage!.path,
                           );
 
-                          if (!mounted || result == null) return;
-                          Navigator.of(safeContext).pop(result); // result will be caught in CameraPage -> HomeScreen
+                          if (!mounted) return;
 
+                          navigator.pop(result ?? {}); // ✅ Always return to Home
                         },
                         child: const Text(
                           "Save",
                           style: TextStyle(fontSize: 14, color: Colors.blue),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 ],
@@ -789,7 +787,6 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       String description,
       Map<String, dynamic> healthy,
       Map<String, dynamic> mimic,
-      String imagePath,
       ) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -799,7 +796,16 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
 
     if (_lastImageUrl.isEmpty) {
       print("🚨 No Cloudinary image URL available.");
-      return null;
+      // Still return a fallback result so user is not stuck
+      return {
+        'title': title,
+        'description': description,
+        'healthyRecipe': healthy,
+        'mimicRecipe': mimic,
+        'imageUrl': '',
+        'imagePath': '',
+        'isFavorite': false,
+      };
     }
 
     final result = {
@@ -808,6 +814,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       'healthyRecipe': healthy,
       'mimicRecipe': mimic,
       'imageUrl': '$_lastImageUrl?f_auto,q_auto',
+      'imagePath': '$_lastImageUrl?f_auto,q_auto',
       'isFavorite': false,
     };
 
@@ -828,7 +835,7 @@ class _CameraPageState extends State<CameraPage> with SingleTickerProviderStateM
       return result;
     } catch (e) {
       print("🔥 Error saving to Firestore: $e");
-      return null;
+      return result;
     }
   }
 

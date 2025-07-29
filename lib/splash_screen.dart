@@ -77,12 +77,7 @@ class _SplashScreenState extends State<SplashScreen>
     Timer(const Duration(seconds: 4), () {
       if (!mounted) return;
 
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        smoothPush(context, HomeScreen());
-      } else {
-        smoothPush(context, const AuthPage());
-      }
+      smoothPush(context, const AuthPage());
     });
   }
 

@@ -13,10 +13,8 @@ import 'package:provider/provider.dart';
 import 'user_profile_provider.dart';
 import 'auth_page.dart';
 
-
 class ProfilePage extends StatefulWidget {
-  final List<Map<String, dynamic>> savedDishes;
-  const ProfilePage({super.key, required this.savedDishes});
+  const ProfilePage({super.key});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -293,13 +291,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       GlassTile(
                         icon: Icons.history,
                         title: "My Dishes",
-                        onTap: () => smoothPush(context, MyDishesPage(savedDishes: widget.savedDishes)),
+                        onTap: () => smoothPush(context, const MyDishesPage()),
                       ),
                       const SizedBox(height: 10),
                       GlassTile(
                         icon: Icons.favorite,
                         title: "Favorites",
-                        onTap: () => smoothPush(context, FavoritesPage(savedDishes: widget.savedDishes)),
+                        onTap: () => smoothPush(context, const FavoritesPage()),
                       ),
                       const SizedBox(height: 10),
                       GlassTile(
@@ -382,13 +380,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (confirmed == true) {
                             showLoadingDialog(context, "Logging out...");
                             await Future.delayed(const Duration(milliseconds: 1200));
-                            await FirebaseAuth.instance.signOut();
+
+                            await FirebaseAuth.instance.signOut(); // 👈 This alone updates auth state
+
                             if (context.mounted) {
-                              Navigator.of(context).pop();
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(builder: (_) => const AuthPage()),
-                                    (route) => false,
-                              );
+                              Navigator.of(context).pop(); // Close loading dialog
                             }
                           }
                         },

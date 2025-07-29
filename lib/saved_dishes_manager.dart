@@ -11,7 +11,7 @@ class SavedDishesManager extends ChangeNotifier {
   List<Map<String, dynamic>> get dishes => _dishes;
 
   SavedDishesManager({required this.userId}) {
-    loadDishes(); // ✅ Auto-load dishes on init
+    loadDishes();
   }
 
   Future<void> loadDishes() async {
@@ -85,17 +85,22 @@ class SavedDishesManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateShoppingList(String id, Set<String> checkedIngredients) async {
+  Future<void> updateShoppingList(String id, Set<String> healthyChecked, Set<String> mimicChecked) async {
     final index = _dishes.indexWhere((dish) => dish['id'] == id);
     if (index == -1) return;
 
-    _dishes[index]['checkedIngredients'] = checkedIngredients.toList();
+    _dishes[index]['healthyCheckedIngredients'] = healthyChecked.toList();
+    _dishes[index]['mimicCheckedIngredients'] = mimicChecked.toList();
+
     await _firestore
         .collection('users')
         .doc(userId)
         .collection('dishes')
         .doc(id)
-        .update({'checkedIngredients': checkedIngredients.toList()});
+        .update({
+      'healthyCheckedIngredients': healthyChecked.toList(),
+      'mimicCheckedIngredients': mimicChecked.toList(),
+    });
 
     notifyListeners();
   }
@@ -107,10 +112,20 @@ class SavedDishesManager extends ChangeNotifier {
         false;
   }
 
-  Set<String> getCheckedIngredients(String id) {
+  Set<String> getHealthyCheckedIngredients(String id) {
     return Set<String>.from(
-      _dishes.firstWhere((dish) => dish['id'] == id,
-          orElse: () => {'checkedIngredients': []})['checkedIngredients'] ??
+      _dishes
+          .firstWhere((dish) => dish['id'] == id,
+          orElse: () => {'healthyCheckedIngredients': []})['healthyCheckedIngredients'] ??
+          [],
+    );
+  }
+
+  Set<String> getMimicCheckedIngredients(String id) {
+    return Set<String>.from(
+      _dishes
+          .firstWhere((dish) => dish['id'] == id,
+          orElse: () => {'mimicCheckedIngredients': []})['mimicCheckedIngredients'] ??
           [],
     );
   }
@@ -124,7 +139,9 @@ class SavedDishesManager extends ChangeNotifier {
       _dishes.where((dish) => dish['isFavorite'] == true).toList();
 
   List<Map<String, dynamic>> get shoppingListDishes => _dishes.where((dish) {
-    final checked = dish['checkedIngredients'];
-    return checked != null && (checked as List).isNotEmpty;
+    final healthy = dish['healthyCheckedIngredients'];
+    final mimic = dish['mimicCheckedIngredients'];
+    return (healthy != null && (healthy as List).isNotEmpty) ||
+        (mimic != null && (mimic as List).isNotEmpty);
   }).toList();
 }

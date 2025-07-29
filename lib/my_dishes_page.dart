@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'glass_dish_card.dart';
+import 'saved_dishes_manager.dart';
 
 class MyDishesPage extends StatefulWidget {
-  final List<Map<String, dynamic>> savedDishes;
-  final void Function(Map<String, dynamic> dish)? onDelete;
-  final void Function(Map<String, dynamic> dish)? onFavoriteToggle;
-
-  const MyDishesPage({
-    super.key,
-    required this.savedDishes,
-    this.onDelete,
-    this.onFavoriteToggle,
-  });
+  const MyDishesPage({super.key});
 
   @override
   State<MyDishesPage> createState() => _MyDishesPageState();
@@ -29,12 +22,6 @@ class _MyDishesPageState extends State<MyDishesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.savedDishes.where((dish) {
-      final title = (dish['title'] ?? '').toString().toLowerCase();
-      final desc = (dish['description'] ?? '').toString().toLowerCase();
-      return title.contains(_searchQuery) || desc.contains(_searchQuery);
-    }).toList();
-
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
@@ -48,89 +35,98 @@ class _MyDishesPageState extends State<MyDishesPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        children: [
-          // 🔍 Search Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value.toLowerCase().trim();
-                });
-              },
-              decoration: InputDecoration(
-                hintText: 'Search my dishes...',
-                prefixIcon: const Icon(Icons.search, color: Colors.black87),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.black54),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
+      body: Consumer<SavedDishesManager>(
+        builder: (context, manager, _) {
+          final filtered = manager.dishes.where((dish) {
+            final title = (dish['title'] ?? '').toString().toLowerCase();
+            final desc = (dish['description'] ?? '').toString().toLowerCase();
+            return title.contains(_searchQuery) || desc.contains(_searchQuery);
+          }).toList();
+
+          return ListView(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            children: [
+              // 🔍 Search Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value.toLowerCase().trim();
+                    });
                   },
+                  decoration: InputDecoration(
+                    hintText: 'Search my dishes...',
+                    prefixIcon: const Icon(Icons.search, color: Colors.black87),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.black54),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      },
+                    )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.black),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.black),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.black, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              if (filtered.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 40),
+                    child: Text(
+                      'No matching dishes found.',
+                      style: TextStyle(fontSize: 18, color: Colors.black54),
+                    ),
+                  ),
                 )
-                    : null,
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black),
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final dish = filtered[index];
+                    return Dismissible(
+                      key: Key(dish['id'] ?? dish['title'] ?? index.toString()),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        color: Colors.black,
+                        child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+                      ),
+                      confirmDismiss: (_) async => await _confirmDelete(context),
+                      onDismissed: (_) => manager.deleteDish(dish['id']),
+                      child: GlassDishCard(
+                        dish: dish,
+                        showPopupOnTap: true,
+                      ),
+                    );
+                  },
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: Colors.black, width: 1.5),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          if (filtered.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(top: 40),
-                child: Text(
-                  'No matching dishes found.',
-                  style: TextStyle(fontSize: 18, color: Colors.black54),
-                ),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: filtered.length,
-              itemBuilder: (context, index) {
-                final dish = filtered[index];
-                return Dismissible(
-                  key: Key(dish['id'] ?? dish['title'] ?? index.toString()),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 20),
-                    color: Colors.black,
-                    child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
-                  ),
-                  confirmDismiss: (_) async => await _confirmDelete(context),
-                  onDismissed: (_) => widget.onDelete?.call(dish),
-                  child: GlassDishCard(
-                    dish: dish,
-                    onFavoriteToggle: () => widget.onFavoriteToggle?.call(dish),
-                    showPopupOnTap: true,
-                  ),
-                );
-              },
-            ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -147,8 +143,11 @@ class _MyDishesPageState extends State<MyDishesPage> {
           children: [
             const Text("Delete this dish?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
-            const Text("Are you sure you want to permanently remove this recipe?",
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 15)),
+            const Text(
+              "Are you sure you want to permanently remove this recipe?",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15),
+            ),
             const SizedBox(height: 24),
             Row(
               children: [

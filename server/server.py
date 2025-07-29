@@ -10,6 +10,7 @@ import cloudinary.uploader
 import time
 import hmac
 import hashlib
+import uuid
 
 load_dotenv(dotenv_path="secrets.env")
 
@@ -49,9 +50,17 @@ def analyze():
             f.write(image_bytes)
 
         # Upload to Cloudinary
+        unique_id = f"dish_{uuid.uuid4().hex[:10]}"
+
         try:
-            upload_result = cloudinary.uploader.upload(temp_filename)
-            image_url = upload_result.get("secure_url")
+            upload_result = cloudinary.uploader.upload(
+                temp_filename,
+                folder="disypher_uploads",  # You can name the folder anything
+                public_id=unique_id,
+                use_filename=True,
+                overwrite=False
+            )
+            image_url = upload_result.get("secure_url") + "?f_auto,q_auto"
         except Exception as e:
             return jsonify({"error": "Cloudinary upload failed", "details": str(e)}), 500
         finally:
